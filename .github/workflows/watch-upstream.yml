@@ -1,0 +1,101 @@
+name: watch-upstream
+# 轮询 npm 上的 kimi-code 新版本：新前端构建 → 契约核对 → 夹具验证 → 自动开 PR。
+# 契约破坏的构建不机械放行，开 issue 附缺失标识。签名打包/发版本不在此流程内（见 README）。
+on:
+  schedule:
+    - cron: '23 */6 * * *'   # 每 6 小时；GitHub 调度有抖动，属正常
+  workflow_dispatch: {}
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+concurrency:
+  group: watch-upstream
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: '24'
+      - name: Detect new upstream frontend builds
+        id: detect
+        run: python3 ci/check_upstream.py
+      - name: Persist upstream state when nothing to adapt
+        if: steps.detect.outputs.new_ok == '[]'
+        run: |
+          set -e
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git pull --rebase origin main
+          if git diff --quiet .github/upstream-state.json; then
+            echo '状态无变化'
+            exit 0
+          fi
+          git add .github/upstream-state.json
+          git commit -qm 'chore(ci): 上游版本状态更新（无新构建）'
+          git push origin HEAD:main
+      - name: Adapt whitelist + regression tests
+        if: steps.detect.outputs.new_ok != '[]'
+        run: python3 ci/add_build.py ${{ join(fromJSON(steps.detect.outputs.new_ok).*.asset, ' ') }}
+      - name: Fixture browser test (headless Chrome via CDP)
+        if: steps.detect.outputs.new_ok != '[]'
+        run: |
+          mkdir -p "$RUNNER_TEMP/fixture-out"
+          export CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          echo "CHROME_BIN=$CHROME_BIN"
+          node ci/fixture_check.mjs . "$RUNNER_TEMP/fixture-out"
+      - name: Open adaptation PR
+        if: steps.detect.outputs.new_ok != '[]'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_OK: ${{ steps.detect.outputs.new_ok }}
+          NEW_FAIL: ${{ steps.detect.outputs.new_fail }}
+        run: |
+          set -e
+          first=$(python3 -c "import json,os; print(json.loads(os.environ['NEW_OK'])[0]['asset'].split('/')[-1].replace('.js',''))")
+          branch="bot/frontend-${first}"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if [ "$(gh pr list --state open --head "$branch" --json number --jq 'length')" != "0" ]; then
+            echo "分支 $branch 已有开放 PR，跳过"
+            exit 0
+          fi
+          git checkout -b "$branch"
+          git add -A
+          git commit -qm "适配上游新前端构建（watch-upstream 自动）
+
+          $(python3 -c "import json,os; [print('-', x['asset'], '← CLI', ', '.join(x['versions'])) for x in json.loads(os.environ['NEW_OK'])]")"
+          git push -q origin "$branch"
+          {
+            echo '## 自动适配（watch-upstream）'
+            echo
+            echo '契约核对通过并加入白名单：'
+            python3 -c "import json,os; [print('- `'+x['asset']+'` ← CLI '+', '.join(x['versions'])) for x in json.loads(os.environ['NEW_OK'])]"
+            echo
+            echo '验证：契约 19 项标识 · node 回归 · 无头 Chrome 夹具 13 项（本 workflow 内执行）。'
+            if [ "$NEW_FAIL" != "[]" ]; then
+              echo
+              echo '⚠️ 同批发现契约破坏的构建（未放行，另见 issue）：'
+              python3 -c "import json,os; [print('- `'+x['asset']+'` 缺 '+', '.join(x['missing'])) for x in json.loads(os.environ['NEW_FAIL'])]"
+            fi
+            echo
+            echo '合并后如需发版，流程见 README「构建」节（签名私钥不在 CI）。'
+          } > /tmp/pr-body.md
+          gh pr create --base main --head "$branch" \
+            --title "适配上游新前端构建 ${first}（自动）" --body-file /tmp/pr-body.md
+      - name: File issue for contract-breaking builds
+        if: steps.detect.outputs.new_fail != '[]'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NEW_FAIL: ${{ steps.detect.outputs.new_fail }}
+        run: |
+          {
+            echo '## 上游新构建契约破坏（watch-upstream 自动报告）'
+            echo
+            python3 -c "import json,os; [print('- `'+x['asset']+'` ← CLI '+', '.join(x['versions'])+'，缺：'+', '.join(x['missing'])) for x in json.loads(os.environ['NEW_FAIL'])]"
+            echo
+            echo '按 issue #2 的设计，这类构建不机械放行，需要人工核对组件/接口改名后更新 ci/contract.json 与适配代码。'
+          } > /tmp/issue-body.md
+          gh issue create --title '上游前端契约破坏，需人工适配' --body-file /tmp/issue-body.md

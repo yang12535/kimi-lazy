@@ -87,6 +87,17 @@ python3 scripts/verify_crx.py dist/kimi-lazy-0.1.0.crx
 
 可以通过 `--chrome /path/to/chrome` 指定打包程序。`src/core/` 由两种版本共享；`src/extension/` 和 `src/userscript/` 分别提供设置面板与注入入口。修改 `project.json` 的版本后重新构建。
 
+## 上游监视 CI（watch-upstream）
+
+`.github/workflows/watch-upstream.yml` 每 6 小时轮询 npm 上的 kimi-code 新版本（也可 Actions 页手动触发）：
+
+1. `ci/check_upstream.py` 从新版本的 npm tarball 解出前端构建 hash（`.github/upstream-state.json` 记录已查版本，不重复下载）；
+2. 新构建先过 `ci/contract.json` 的 19 项契约标识核对；
+3. 通过 → `ci/add_build.py` 加白名单 + 重建 + 回归测试 → 无头 Chrome 夹具 13 项（CDP）→ **自动开 PR**（人工合并）；
+4. 契约破坏 → **自动开 issue** 附缺失标识，不机械放行。
+
+只检测到已记录构建时，bot 直接把状态文件 commit 回 main（记帐性质，不经 PR）。该工作流使用 `GITHUB_TOKEN`，按其默认行为，bot 开的 PR 不会再触发其他工作流。CRX 签名私钥不进 CI，发版仍为手动。
+
 ## 许可
 
 [MIT](LICENSE)。本项目是独立适配工具，非 Kimi 或 Via 官方产品。
