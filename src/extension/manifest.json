@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Kimi 会话轻量浏览",
-  "version": "0.1.0",
-  "description": "适配 Kimi Web 0.39.1：最近消息、按需恢复、闲置回收和工具过程懒渲染。",
+  "version": "0.1.1",
+  "description": "适配 Kimi Web 0.37.2 / 0.39.1：最近消息、按需恢复、闲置回收和工具过程懒渲染。",
   "permissions": ["storage"],
   "content_scripts": [
     {

@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1 — 2026-09-06
+
+- 修复：Kimi Web 前端 0.37.2（构建 `/assets/index-BkUUBejk.js`）下脚本不启用。该构建与 0.39.1 组件契约一致（Vue 3.5.39，ChatPane/ActivityRun/TurnFold/ThinkingBlock 及各 class、事件名逐一核对），加入已知构建白名单；未知构建仍不启用。
+
 ## 0.1.0 — 2026-09-06
 
 首次公开发布 Chrome 扩展与 Via / 用户脚本版本。

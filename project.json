@@ -1,6 +1,6 @@
 {
   "name": "kimi-lazy",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "repository": "yang12535/kimi-lazy",
-  "supportedFrontend": "0.39.1"
+  "supportedFrontend": "0.37.2 / 0.39.1"
 }
