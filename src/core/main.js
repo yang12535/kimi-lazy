@@ -2,8 +2,8 @@
 (() => {
   'use strict';
   if (window.__KIMI_LAZY__ || !window.KimiLazyPolicy) return;
-  // Known frontend builds: 0.39.1 (index--0t1wzw_) and 0.37.2 (index-BkUUBejk).
-  const BUILDS = new Set(['/assets/index--0t1wzw_.js', '/assets/index-BkUUBejk.js']);
+  // Known frontend builds: CLI 0.41.0 (index-CiHMlsuo), 0.39.1 (index--0t1wzw_), 0.37.2 (index-BkUUBejk).
+  const BUILDS = new Set(['/assets/index-CiHMlsuo.js', '/assets/index--0t1wzw_.js', '/assets/index-BkUUBejk.js']);
   const { WindowPolicy } = window.KimiLazyPolicy;
   const names = new Set(['ChatPane', 'ActivityRun', 'TurnFold', 'ThinkingBlock']);
   let config = { enabled: true, keep: 20, blocks: 20, idleMinutes: 10, auto: true };

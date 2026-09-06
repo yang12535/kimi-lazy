@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const BUILDS = new Set(['/assets/index--0t1wzw_.js', '/assets/index-BkUUBejk.js']);
+  const BUILDS = new Set(['/assets/index-CiHMlsuo.js', '/assets/index--0t1wzw_.js', '/assets/index-BkUUBejk.js']);
   if (!Array.from(document.scripts).some(s => {
     try { return BUILDS.has(new URL(s.src).pathname); } catch { return false; }
   })) return;
