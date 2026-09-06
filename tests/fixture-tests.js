@@ -34,6 +34,22 @@ window.runFixtureTests = async (options = {}) => {
   check('disable restores all native content without altering data',document.querySelectorAll('.kl-placeholder').length===0 && document.querySelectorAll('.turn-anchor').length===52 && hash===JSON.stringify(fixture.turns.value));
   api.configure({enabled:true});await flush();fixture.switchSession();await flush();api.sweep();await flush();
   check('session change cleans old IDs and detached instances',document.querySelectorAll('[data-turn-id^="t"]').length===0 && main().counts[0].total===10 && api.stats().states<30,api.stats().states);
+  const panelHost=document.getElementById('kimi-lazy-panel');
+  const tg=panelHost.shadowRoot.getElementById('toggle'),bodyEl=panelHost.shadowRoot.getElementById('body');
+  const r0=panelHost.getBoundingClientRect();
+  const pe=(type,x,y)=>tg.dispatchEvent(new PointerEvent(type,{pointerId:7,clientX:x,clientY:y,button:0,bubbles:true}));
+  pe('pointerdown',r0.left+10,r0.top+10);pe('pointermove',r0.left-90,r0.top+60);pe('pointerup',r0.left-90,r0.top+60);
+  const r1=panelHost.getBoundingClientRect();
+  let savedPos=null;try{savedPos=JSON.parse(localStorage.getItem('kimi-lazy.userscript.pos.v1')||'null');}catch{}
+  check('panel toggle drags freely and persists position',Math.round(r1.left-r0.left)===-100 && Math.round(r1.top-r0.top)===50 && savedPos&&typeof savedPos.fx==='number',{before:{l:r0.left,t:r0.top},after:{l:r1.left,t:r1.top},savedPos});
+  pe('pointerdown',r1.left+10,r1.top+10);pe('pointermove',-5000,-5000);pe('pointerup',-5000,-5000);
+  const r2=panelHost.getBoundingClientRect();
+  check('panel drag clamps inside the viewport',r2.left>=3 && r2.top>=3 && r2.right<=innerWidth-3 && r2.bottom<=innerHeight-3,{l:r2.left,t:r2.top,r:r2.right,b:r2.bottom,vw:innerWidth,vh:innerHeight});
+  tg.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+  const suppressed=bodyEl.hidden;
+  await new Promise(r=>setTimeout(r,400));tg.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+  check('click after drag is suppressed, later click opens the panel',suppressed===true && bodyEl.hidden===false,{suppressed,hidden:bodyEl.hidden});
+  tg.dispatchEvent(new MouseEvent('click',{bubbles:true}));
   check('adapter reports no error',api.stats().error==='');
   return results;
 };
