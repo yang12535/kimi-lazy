@@ -3,6 +3,7 @@
 ## 0.1.1 — 2026-09-06
 
 - 修复：Kimi Web 前端 0.37.2（构建 `/assets/index-BkUUBejk.js`）下脚本不启用。该构建与 0.39.1 组件契约一致（Vue 3.5.39，ChatPane/ActivityRun/TurnFold/ThinkingBlock 及各 class、事件名逐一核对），加入已知构建白名单；未知构建仍不启用。
+- 铺底：白名单覆盖 kimi-code CLI 0.33.0–0.41.0 全部 12 个前端构建（npm 全历史契约核对，kimi-lazy-watch 流水线产出）；≤0.32.0 的老构建无 ActivityRun/TurnFold 架构，不适用。
 
 ## 0.1.0 — 2026-09-06
 
