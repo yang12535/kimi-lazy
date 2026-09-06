@@ -1,0 +1,10 @@
+dist/
+node_modules/
+__pycache__/
+*.pyc
+*.pem
+*.key
+*.crx
+*.zip
+tests/fixture-bundle.js
+tests/last-browser-result.json

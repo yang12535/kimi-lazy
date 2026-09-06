@@ -1,0 +1,137 @@
+{
+  "ua": "Mozilla/5.0 (Linux; Android 13; WayDroid x86_64 Device Build/TQ3A.230901.001) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.7680.153 Safari/537.36",
+  "initial": {
+    "mounts": 200,
+    "unmounts": 0
+  },
+  "adapter": true,
+  "results": [
+    {
+      "name": "first render mounts only the requested heavy leaves",
+      "pass": true,
+      "detail": {
+        "mounts": 200,
+        "unmounts": 0
+      }
+    },
+    {
+      "name": "latest 20 messages and per-message 20 blocks",
+      "pass": true,
+      "detail": {
+        "total": 40,
+        "mounted": 20
+      }
+    },
+    {
+      "name": "restoring an old message uses native content",
+      "pass": true,
+      "detail": {
+        "total": 40,
+        "mounted": 21
+      }
+    },
+    {
+      "name": "opening a 35-tool group mounts 20 tools",
+      "pass": true,
+      "detail": 20
+    },
+    {
+      "name": "a tool block restores separately",
+      "pass": true
+    },
+    {
+      "name": "closing a tool group unmounts its leaves",
+      "pass": true
+    },
+    {
+      "name": "visible history survives timeout",
+      "pass": true
+    },
+    {
+      "name": "offscreen idle history is unmounted after ten minutes",
+      "pass": true,
+      "detail": 20
+    },
+    {
+      "name": "live turn limits old blocks and receives streaming delta",
+      "pass": true
+    },
+    {
+      "name": "full history loading preserves virtualization",
+      "pass": true,
+      "detail": {
+        "total": 52,
+        "mounted": 20
+      }
+    },
+    {
+      "name": "disable restores all native content without altering data",
+      "pass": true
+    },
+    {
+      "name": "session change cleans old IDs and detached instances",
+      "pass": true,
+      "detail": 6
+    },
+    {
+      "name": "adapter reports no error",
+      "pass": true
+    }
+  ],
+  "stats": {
+    "states": 6,
+    "error": "",
+    "enabled": true,
+    "groups": [
+      {
+        "name": "ChatPane",
+        "counts": [
+          {
+            "total": 10,
+            "mounted": 10
+          },
+          {
+            "total": 40,
+            "mounted": 20
+          },
+          {
+            "total": 40,
+            "mounted": 20
+          },
+          {
+            "total": 40,
+            "mounted": 20
+          },
+          {
+            "total": 40,
+            "mounted": 20
+          },
+          {
+            "total": 40,
+            "mounted": 20
+          }
+        ]
+      },
+      {
+        "name": "ActivityRun",
+        "counts": []
+      },
+      {
+        "name": "ActivityRun",
+        "counts": []
+      },
+      {
+        "name": "ActivityRun",
+        "counts": []
+      },
+      {
+        "name": "ActivityRun",
+        "counts": []
+      },
+      {
+        "name": "ActivityRun",
+        "counts": []
+      }
+    ]
+  }
+}
