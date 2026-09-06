@@ -1,8 +1,8 @@
-/* Kimi Web 0.39.1 / 0.37.2 adapter (both Vue 3.5.39). Build guarded; fails open to native UI. */
+/* Kimi Web adapter (Vue 3.5.x). Guarded by the known-build whitelist; fails open to native UI. */
 (() => {
   'use strict';
   if (window.__KIMI_LAZY__ || !window.KimiLazyPolicy) return;
-  // Known frontend builds: CLI 0.41.0 (index-CiHMlsuo), 0.39.1 (index--0t1wzw_), 0.37.2 (index-BkUUBejk).
+  // Known frontend builds: Kimi Web bundles shipped with kimi-code CLI 0.33.0–0.41.0.
   const BUILDS = new Set(['/assets/index-Bxn5yOTB.js', '/assets/index-CgXirkUy.js', '/assets/index-ClWTW3HX.js', '/assets/index-CvgiEu-R.js', '/assets/index-B-HzRssS.js', '/assets/index-yKYHPeXU.js', '/assets/index-BdL5hCoZ.js', '/assets/index-D-7nOosq.js', '/assets/index-HRJ6xRtC.js', '/assets/index-CiHMlsuo.js', '/assets/index--0t1wzw_.js', '/assets/index-BkUUBejk.js']);
   const { WindowPolicy } = window.KimiLazyPolicy;
   const names = new Set(['ChatPane', 'ActivityRun', 'TurnFold', 'ThinkingBlock']);
