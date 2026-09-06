@@ -1,7 +1,8 @@
 (() => {
   'use strict';
   if (window.top !== window.self) return;
-  const BUILD = '/assets/index--0t1wzw_.js';
+  // Known frontend builds: 0.39.1 (index--0t1wzw_) and 0.37.2 (index-BkUUBejk).
+  const BUILDS = new Set(['/assets/index--0t1wzw_.js', '/assets/index-BkUUBejk.js']);
   const STORAGE_KEY = 'kimi-lazy.userscript.settings.v1';
   const defaults = { enabled: true, keep: 20, blocks: 20, idleMinutes: 10, auto: true };
   function normalize(value) {
@@ -34,7 +35,7 @@
   }
   function detect() {
     if (Array.from(document.scripts).some(script => {
-      try { return new URL(script.src).pathname === BUILD; } catch { return false; }
+      try { return BUILDS.has(new URL(script.src).pathname); } catch { return false; }
     })) launch();
   }
   detect();

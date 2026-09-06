@@ -1,8 +1,9 @@
-/* Kimi Web 0.39.1 / Vue 3.5.39 adapter. Version guarded; fails open to native UI. */
+/* Kimi Web 0.39.1 / 0.37.2 adapter (both Vue 3.5.39). Build guarded; fails open to native UI. */
 (() => {
   'use strict';
   if (window.__KIMI_LAZY__ || !window.KimiLazyPolicy) return;
-  const BUILD = '/assets/index--0t1wzw_.js';
+  // Known frontend builds: 0.39.1 (index--0t1wzw_) and 0.37.2 (index-BkUUBejk).
+  const BUILDS = new Set(['/assets/index--0t1wzw_.js', '/assets/index-BkUUBejk.js']);
   const { WindowPolicy } = window.KimiLazyPolicy;
   const names = new Set(['ChatPane', 'ActivityRun', 'TurnFold', 'ThinkingBlock']);
   let config = { enabled: true, keep: 20, blocks: 20, idleMinutes: 10, auto: true };
@@ -23,7 +24,7 @@
   }
   const idleMs = () => config.idleMinutes * 60000;
   const supported = () => Array.from(document.scripts).some(s => {
-    try { return new URL(s.src).pathname === BUILD; } catch { return false; }
+    try { return BUILDS.has(new URL(s.src).pathname); } catch { return false; }
   });
   const cls = v => typeof v?.props?.class === 'string' ? v.props.class.split(/\s+/) : [];
   const has = (v, name) => cls(v).includes(name);
@@ -310,7 +311,7 @@
     window.dispatchEvent(new CustomEvent('kimi-lazy-status', { detail: JSON.stringify({
       supported: supported(), attached: !!main, enabled: config.enabled, error: failed,
       mounted, asleep, fullHistory, hasMore: !!main?.instance.props.hasMoreMessages,
-      config, version: '0.1.0'
+      config, version: '0.1.1'
     }) }));
   }
   function configure(next) {

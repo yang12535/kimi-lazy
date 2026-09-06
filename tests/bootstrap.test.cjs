@@ -42,6 +42,10 @@ test('subframes are skipped even if a manager ignores @noframes', () => {
   assert.equal(p.counts().observed, 0);
   assert.equal(p.events.size, 0);
 });
+test('shipped bundle whitelists both known frontend builds explicitly', () => {
+  assert.match(source, /\/assets\/index--0t1wzw_\.js/);
+  assert.match(source, /\/assets\/index-BkUUBejk\.js/);
+});
 test('single file targets all HTTP(S) hosts and has no privileged API or remote dependency', () => {
   assert.match(source, /^\/\/ @match\s+\*:\/\/\*\/\*$/m);
   assert.match(source, /^\/\/ @grant\s+none$/m);

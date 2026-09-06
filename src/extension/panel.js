@@ -1,7 +1,8 @@
 (() => {
   'use strict';
+  const BUILDS = new Set(['/assets/index--0t1wzw_.js', '/assets/index-BkUUBejk.js']);
   if (!Array.from(document.scripts).some(s => {
-    try { return new URL(s.src).pathname === '/assets/index--0t1wzw_.js'; } catch { return false; }
+    try { return BUILDS.has(new URL(s.src).pathname); } catch { return false; }
   })) return;
   const defaults = { enabled: true, keep: 20, blocks: 20, idleMinutes: 10, auto: true };
   const host = document.createElement('div');
