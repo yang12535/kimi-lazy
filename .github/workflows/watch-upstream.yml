@@ -43,7 +43,11 @@ jobs:
         if: steps.detect.outputs.new_ok != '[]'
         run: |
           mkdir -p "$RUNNER_TEMP/fixture-out"
-          export CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          export CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser || true)"
+          if [ -z "$CHROME_BIN" ]; then
+            echo '::error::runner 上未找到 Chrome/Chromium，夹具测试无法运行'
+            exit 1
+          fi
           echo "CHROME_BIN=$CHROME_BIN"
           node ci/fixture_check.mjs . "$RUNNER_TEMP/fixture-out"
       - name: Open adaptation PR

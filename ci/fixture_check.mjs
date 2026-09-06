@@ -1,35 +1,39 @@
 #!/usr/bin/env node
 /**
- * 在沙盒容器内跑 kimi-lazy 的 13 项夹具浏览器测试（无头 chromium + CDP）。
+ * 跑 kimi-lazy 的 13 项夹具浏览器测试（无头 Chrome/Chromium + CDP）。
  *
- * 用法: node cdp_fixture_check.mjs <repoDir> <outDir>
- * 流程: 构建夹具与用户脚本 → 起静态服务 → CDP 驱动无头 chromium 打开夹具页
+ * 用法: node fixture_check.mjs <repoDir> <outDir>
+ * 流程: 构建夹具与用户脚本 → 起静态服务 → CDP 驱动无头浏览器打开夹具页
  *       → 等待 13 项结果 → 截图 + 写 <outDir>/cdp-report.json
  * 退出码: 0 = 13/13 通过；1 = 有失败/超时；2 = 环境错误。
+ * 环境变量: CHROME_BIN 指定浏览器路径，默认 /usr/bin/chromium。
  */
 import { spawn, execFileSync } from 'node:child_process';
-import { writeFileSync, readFileSync, existsSync } from 'node:fs';
+import { writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import path from 'node:path';
 
 const [repoDir, outDir] = process.argv.slice(2);
-if (!repoDir || !outDir) { console.error('usage: cdp_fixture_check.mjs <repoDir> <outDir>'); process.exit(2); }
+if (!repoDir || !outDir) { console.error('usage: fixture_check.mjs <repoDir> <outDir>'); process.exit(2); }
 
 const CHROME = process.env.CHROME_BIN || '/usr/bin/chromium';
 const PORT = 58791;
 const resultsFile = path.join(repoDir, 'tests', 'last-browser-result.json');
-try { if (existsSync(resultsFile)) execFileSync('rm', [resultsFile]); } catch {}
+try { rmSync(resultsFile, { force: true }); } catch {}
 
 console.log('[1/4] 构建夹具与用户脚本...');
 execFileSync('npm', ['ci', '--no-audit', '--no-fund', '--loglevel=error'], { cwd: repoDir, stdio: 'inherit' });
 execFileSync('node', ['tests/build.cjs'], { cwd: repoDir, stdio: 'inherit' });
 execFileSync('python3', ['scripts/build.py'], { cwd: repoDir, stdio: 'inherit' });
 
-console.log('[2/4] 起静态服务与无头 chromium...');
+console.log('[2/4] 起静态服务与无头浏览器...');
+const die = (what, err) => { console.error(`环境错误：${what} 启动失败 — ${err?.message || err}`); process.exit(2); };
 const server = spawn('python3', ['tests/serve.py', '--port', String(PORT)], { cwd: repoDir, stdio: 'ignore' });
+server.on('error', e => die('静态服务(python3)', e));
 const chrome = spawn(CHROME, [
   '--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
   '--remote-debugging-port=9222', '--user-data-dir=/tmp/chrome-profile', 'about:blank',
 ], { stdio: ['ignore', 'ignore', 'pipe'] });
+chrome.on('error', e => die(`浏览器(${CHROME})`, e));
 process.on('exit', () => { try { chrome.kill(); server.kill(); } catch {} });
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
