@@ -1,0 +1,9 @@
+{
+  "vue": "3.5",
+  "identifiers": {
+    "injectionPoint": ["__VUE_INSTANCE_SETTERS__"],
+    "components": ["ChatPane", "ActivityRun", "TurnFold", "ThinkingBlock"],
+    "classes": ["chat-scroll", "a-msg", "ar-body", "tf-body", "think-body", "v-fgt"],
+    "props": ["hasMoreMessages", "loadingMore", "loadingMoreError", "sessionLoading", "loadOlderMessages", "turnActive", "inspector"]
+  }
+}
