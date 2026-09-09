@@ -29,11 +29,12 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git pull --rebase origin main
-          if git diff --quiet .github/upstream-state.json; then
+          # 新版本复用已知构建时只有 state 与注释范围变化，一并入库（Codex P2）
+          git add .github/upstream-state.json src/core/main.js src/extension/panel.js src/userscript/bootstrap.js src/userscript/panel.js
+          if git diff --cached --quiet; then
             echo '状态无变化'
             exit 0
           fi
-          git add .github/upstream-state.json
           git commit -qm 'chore(ci): 上游版本状态更新（无新构建）'
           git push origin HEAD:main
       - name: Adapt whitelist + regression tests
@@ -89,14 +90,29 @@ jobs:
           if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
             echo "远端已存在 $branch（上次仅开 PR 步骤失败），复用该分支"
             git checkout -q -- .
-            git fetch -q origin "$branch"
-            git checkout -q "$branch"
+            # actions/checkout 默认窄 refspec，必须显式取到远端跟踪引用（Codex P1）
+            git fetch -q origin "refs/heads/$branch:refs/remotes/origin/$branch"
+            git checkout -q -B "$branch" "origin/$branch"
+            # 分支创建后若上游又发版，本批新构建可能未进该分支：补齐而非丢弃（Codex P2）
+            missing=$(python3 - <<'PY'
+          import json, os, re
+          from pathlib import Path
+          text = Path('src/core/main.js').read_text()
+          m = re.search(r'BUILDS\s*=\s*new\s+Set\s*\(\s*\[([^\]]*)\]', text)
+          have = set(re.findall(r"'(/assets/index-[\w-]+\.js)'", m.group(1))) if m else set()
+          print(' '.join(x['asset'] for x in json.loads(os.environ['NEW_OK']) if x['asset'] not in have))
+          PY
+          )
+            if [ -n "$missing" ]; then
+              python3 ci/add_build.py $missing
+              git add -A
+              git commit -qm "补齐同批新构建（watch-upstream 自动）"
+              git push -q origin "$branch"
+            fi
           else
             git checkout -q -b "$branch"
             git add -A
-            git commit -qm "适配上游新前端构建（watch-upstream 自动）
-
-            $(cat /tmp/pr-commits.txt)"
+            git commit -qm "适配上游新前端构建（watch-upstream 自动）" -qm "$(cat /tmp/pr-commits.txt)"
             git push -q origin "$branch"
           fi
           gh pr create --base main --head "$branch" \
