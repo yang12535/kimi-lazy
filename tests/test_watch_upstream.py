@@ -78,6 +78,22 @@ class BranchRecoveryTests(unittest.TestCase):
             module.refresh_comment()
         self.assertIn('警告', err.getvalue())
 
+    def test_coverage_comments_preserve_rejected_and_missing_build_gaps(self):
+        self.state({'0.33.0': A, '0.41.0': A, '0.42.0': B,
+                    '0.43.0': A, '0.43.1': None, '0.44.0': A})
+        for rel in GENERATED[1:]:
+            (self.repo / rel).write_text("// Known frontend builds: Kimi Web bundles shipped with kimi-code CLI 0.33.0–0.44.0.\nconst BUILDS = new Set(['/assets/index-A.js']);\n")
+        spec = importlib.util.spec_from_file_location('fixture_upstream', self.repo / 'ci/check_upstream.py')
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        with contextlib.redirect_stdout(io.StringIO()):
+            module.refresh_comment()
+            first = [(self.repo / rel).read_text() for rel in GENERATED[1:]]
+            module.refresh_comment()
+        self.assertEqual(first, [(self.repo / rel).read_text() for rel in GENERATED[1:]])
+        for text in first:
+            self.assertIn('CLI 0.33.0–0.41.0, 0.43.0, 0.44.0.', text)
+
     def test_new_branch_preserves_detection(self):
         self.state({'0.1.0': None, '0.2.0': A})
         self.prepare([{'asset': A, 'versions': ['0.2.0']}])

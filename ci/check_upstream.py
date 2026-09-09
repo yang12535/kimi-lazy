@@ -25,7 +25,7 @@ STATE_PATH = ROOT / '.github' / 'upstream-state.json'
 CONTRACT = json.loads((ROOT / 'ci' / 'contract.json').read_text())
 TARGETS = ['src/core/main.js', 'src/extension/panel.js', 'src/userscript/bootstrap.js', 'src/userscript/panel.js']
 LIST_RE = re.compile(r'BUILDS\s*=\s*new\s+Set\s*\(\s*\[([^\]]*)\]')
-COMMENT_RE = re.compile(r'(// Known frontend builds: Kimi Web bundles shipped with kimi-code CLI )[\d.]+–[\d.]+(\.)')
+COMMENT_RE = re.compile(r'(// Known frontend builds: Kimi Web bundles shipped with kimi-code CLI )[^\n]*(\.)')
 
 
 def refresh_comment():
@@ -40,14 +40,23 @@ def refresh_comment():
     whitelist = set(re.findall(r"'(/assets/index-[\w-]+\.js)'", m.group(1)))
     try:
         versions = json.loads(STATE_PATH.read_text())['versions']
-        covered = sorted((v for v, a in versions.items() if a in whitelist),
-                         key=lambda v: tuple(int(x) for x in v.split('.')))
+        ordered = sorted(versions, key=lambda v: tuple(int(x) for x in v.split('.')))
     except Exception as e:
         print(f'警告：注释版本范围刷新失败：{e}', file=sys.stderr)
         return
-    if not covered:
+    # Split at every recorded unsupported release instead of claiming the gap.
+    runs, current = [], []
+    for version in ordered:
+        if versions[version] in whitelist:
+            current.append(version)
+        elif current:
+            runs.append(current)
+            current = []
+    if current:
+        runs.append(current)
+    if not runs:
         return
-    rng = f'{covered[0]}–{covered[-1]}'
+    rng = ', '.join(run[0] if len(run) == 1 else f'{run[0]}–{run[-1]}' for run in runs)
     for rel in TARGETS:
         p = ROOT / rel
         text = p.read_text()
