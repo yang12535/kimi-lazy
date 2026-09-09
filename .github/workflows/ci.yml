@@ -23,3 +23,7 @@ jobs:
           node --test tests/*.test.cjs
       - name: Package integrity and signature checks
         run: python3 -m unittest discover -s tests -p 'test_*.py' -v
+      - name: Browser fixture and panel regressions
+        run: |
+          export CHROME_BIN="$(command -v google-chrome || command -v chromium || command -v chromium-browser)"
+          node ci/fixture_check.mjs . "$RUNNER_TEMP/fixture-out"

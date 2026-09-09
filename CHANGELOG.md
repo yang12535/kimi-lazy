@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2 — 2026-09-06
+
+- 新增：悬浮面板可从固定右上角拖动到屏幕任意边缘，鼠标与触摸均可（Pointer Events）；拖动超过 6px 才判定为移动，普通点击开合面板不受影响。
+- 面板位置按网站记住（用户脚本存 localStorage，扩展存 chrome.storage.local），以视口比例保存，窗口缩放或手机旋转后自动钳回可视范围内。
+- 面板靠近下半屏或右半屏时，设置页自动改为向上 / 向左展开，不再溢出屏幕。
+
 ## 0.1.1 — 2026-09-06
 
 - 修复：Kimi Web 前端 0.37.2（构建 `/assets/index-BkUUBejk.js`）下脚本不启用。该构建与 0.39.1 组件契约一致（Vue 3.5.39，ChatPane/ActivityRun/TurnFold/ThinkingBlock 及各 class、事件名逐一核对），加入已知构建白名单；未知构建仍不启用。

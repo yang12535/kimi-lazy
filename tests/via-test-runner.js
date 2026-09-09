@@ -9,5 +9,5 @@ window.addEventListener('DOMContentLoaded',()=>setTimeout(async()=>{
  } catch(e) { result.error=String(e); result.results=window.fixtureTestResults; }
  result.stats=window.__KIMI_LAZY__?.stats();
  await report();
- const status=document.createElement('div');status.style='position:fixed;bottom:4px;left:4px;z-index:2147483001;background:#123;color:white;padding:10px';status.textContent=result.error?'TEST FAILED':'PASS '+result.results.filter(r=>r.pass).length+'/13';document.body.append(status);
+ const status=document.createElement('div');status.style='position:fixed;bottom:4px;left:4px;z-index:2147483001;background:#123;color:white;padding:10px';status.textContent=result.error?'TEST FAILED':'PASS '+result.results.filter(r=>r.pass).length+'/'+result.results.length;document.body.append(status);
 },200));
