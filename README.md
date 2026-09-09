@@ -11,17 +11,17 @@
 | 用户脚本 | Via 等支持用户脚本的手机浏览器；Tampermonkey / Violentmonkey | `kimi-lazy.user.js` | 所有 HTTP(S) 域名、IP、端口，通过 Kimi 页面特征决定是否启动 |
 | Chrome 扩展 | 在桌面浏览器访问本机 Kimi | `kimi-lazy-0.1.0.crx` 或 `kimi-lazy-0.1.0-extension.zip` | 默认 `127.0.0.1`、`localhost` 的 HTTP 页面，端口不限 |
 
-两种版本选一种安装即可。用户脚本已在 **Via 7.3.3 / Waydroid Android 13 / WebView 146** 中完成安装和运行验证。
+两种版本选一种安装即可。用户脚本已在 **Via 7.3.3 / Waydroid Android 13 / WebView 146** 和 **Tampermonkey 5.6 / 桌面 Chrome（MV3）** 中完成安装和运行验证。
 
 ### Via / 用户脚本
 
 1. 用 Via 打开上面的 `.user.js` 下载链接，在脚本安装提示中确认安装并启用。
 2. 或先下载文件，在 Via 的脚本页面选择「导入脚本」。通过「添加脚本」粘贴时，需要包含文件开头的完整 UserScript 元数据。
-3. 刷新 Kimi 页面，右上角出现「轻量浏览」按钮。
+3. 刷新 Kimi 页面，右上角出现「轻量浏览」按钮；按住可拖动到屏幕任意边缘，位置按网站记住，面板会朝可用空间方向展开。
 
 若 Via 对当前网站单独禁用了脚本，需要启用该网站的脚本。手机的 `127.0.0.1` 指手机自身；访问电脑服务时，使用手机可达的服务地址。
 
-同一个文件包含 Tampermonkey / Violentmonkey 的页面环境注入声明，无 `@require`，不依赖 GM API 或 Chrome 扩展 API。管理器支持更新检查时，会从本仓库的最新 Release 获取更新。两种管理器的正式安装流程尚未在本项目测试中执行。[元数据说明](https://violentmonkey.github.io/api/metadata-block/)
+同一个文件包含 Tampermonkey / Violentmonkey 的页面环境注入声明，无 `@require`，不依赖 GM API 或 Chrome 扩展 API。管理器支持更新检查时，会从本仓库的最新 Release 获取更新。Tampermonkey 已在桌面 Chrome 实测通过：MV3 下需要在 `chrome://extensions` 的篡改猴详情页开启「允许用户脚本」，脚本才会注入。编辑器对 `@inject-into` 头的 eslint 警告不影响运行。[元数据说明](https://violentmonkey.github.io/api/metadata-block/)
 
 ### Chrome 扩展
 
@@ -58,8 +58,9 @@ Via 的 `document-start` 实际执行时机可能变化。实测有一轮先全�
 ## 验证
 
 - 8 项 Node 测试：窗口租约、可见保护、消息变化、会话清理、非目标页面和子框架退出等。
-- 13 项浏览器功能检查：历史恢复、工具组展开 / 折叠、闲置回收、流式更新、补齐历史、停用还原等。
+- 16 项浏览器功能检查：历史恢复、工具组展开 / 折叠、闲置回收、流式更新、补齐历史、停用还原、面板拖动与边界钳制等。
 - Via 原生脚本安装与运行通过；真实会话显示 **20 条已渲染、39 条休眠**，开关还原正常。
+- Tampermonkey 5.6（MV3，开启「允许用户脚本」）安装与运行通过；真实会话显示 **503 条已渲染、163 条休眠**，从 0.1.0 到 0.1.1 的自动更新链路生效。
 - 320 × 640 窄屏面板检查通过。
 - CRX3 签名、ID、ZIP 内容及篡改拒绝检查。
 
@@ -93,7 +94,7 @@ python3 scripts/verify_crx.py dist/kimi-lazy-0.1.0.crx
 
 1. `ci/check_upstream.py` 从新版本的 npm tarball 解出前端构建 hash（`.github/upstream-state.json` 记录已查版本，不重复下载）；
 2. 新构建先过 `ci/contract.json` 的 19 项契约标识核对；
-3. 通过 → `ci/add_build.py` 加白名单 + 重建 + 回归测试 → 无头 Chrome 夹具 13 项（CDP）→ **自动开 PR**（人工合并）；
+3. 通过 → `ci/add_build.py` 加白名单 + 重建 + 回归测试 → 无头 Chrome 夹具 16 项（CDP）→ **自动开 PR**（人工合并）；
 4. 契约破坏 → **自动开 issue** 附缺失标识，不机械放行。
 
 只检测到已记录构建时，bot 直接把状态文件 commit 回 main（记帐性质，不经 PR）。该工作流使用 `GITHUB_TOKEN`，按其默认行为，bot 开的 PR 不会再触发其他工作流。CRX 签名私钥不进 CI，发版仍为手动。
