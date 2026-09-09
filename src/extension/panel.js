@@ -32,7 +32,7 @@
     <div class="buttons"><button id="save">应用设置</button><button id="recent">回到最新并回收</button></div>
     <p>历史数据按需读取，屏幕外仍保留轻量占位。</p>
     <div class="buttons"><button id="all">加载全部历史</button><button id="cancel" hidden>停止加载</button></div>
-    <small>适配前端 0.39.1。回收浏览器渲染组件；Kimi 自身的原始消息缓存仍保留。关闭此开关可恢复原生界面。</small>
+    <small>仅在已核对的前端构建启用。回收浏览器渲染组件；Kimi 自身的原始消息缓存仍保留。关闭此开关可恢复原生界面。</small>
   </section>`;
   document.documentElement.append(host);
   const $ = id => shadow.getElementById(id);
