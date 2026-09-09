@@ -11,7 +11,7 @@ class Handler(SimpleHTTPRequestHandler):
  def translate_path(self, path):
   files = {'/fixture.html':'fixture.html','/via-fixture.html':'via-fixture.html',
    '/assets/index--0t1wzw_.js':'fixture-bundle.js',
-   '/fixture-tests.js':'fixture-tests.js','/via-test-runner.js':'via-test-runner.js'}
+   '/extension-fixture.html':'extension-fixture.html','/fixture-tests.js':'fixture-tests.js','/via-test-runner.js':'via-test-runner.js'}
   clean=path.split('?')[0]
   return str(root/files[clean]) if clean in files else super().translate_path(path)
  def end_headers(self):

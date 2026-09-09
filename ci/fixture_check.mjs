@@ -1,22 +1,30 @@
 #!/usr/bin/env node
 /**
- * 跑 kimi-lazy 的 13 项夹具浏览器测试（无头 Chrome/Chromium + CDP）。
+ * 跑 kimi-lazy 的 全量夹具浏览器测试（无头 Chrome/Chromium + CDP）。
  *
  * 用法: node fixture_check.mjs <repoDir> <outDir>
  * 流程: 构建夹具与用户脚本 → 起静态服务 → CDP 驱动无头浏览器打开夹具页
- *       → 等待 13 项结果 → 截图 + 写 <outDir>/cdp-report.json
- * 退出码: 0 = 13/13 通过；1 = 有失败/超时；2 = 环境错误。
+ *       → 等待 全量结果 → 截图 + 写 <outDir>/cdp-report.json
+ * 退出码: 0 = 全部完成且通过；1 = 有失败/超时；2 = 环境错误。
  * 环境变量: CHROME_BIN 指定浏览器路径，默认 /usr/bin/chromium。
  */
 import { spawn, execFileSync } from 'node:child_process';
-import { writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
+import { writeFileSync, readFileSync, existsSync, rmSync, mkdtempSync, mkdirSync } from 'node:fs';
 import path from 'node:path';
+import os from 'node:os';
+import net from 'node:net';
+import {panelChecks} from './panel_checks.mjs';
 
 const [repoDir, outDir] = process.argv.slice(2);
 if (!repoDir || !outDir) { console.error('usage: fixture_check.mjs <repoDir> <outDir>'); process.exit(2); }
 
 const CHROME = process.env.CHROME_BIN || '/usr/bin/chromium';
-const PORT = 58791;
+const profile = mkdtempSync(path.join(os.tmpdir(), 'kimi-lazy-fixture-'));
+mkdirSync(outDir, {recursive: true});
+const PORT = await new Promise(resolve => {
+  const socket = net.createServer();
+  socket.listen(0, '127.0.0.1', () => { const port=socket.address().port; socket.close(() => resolve(port)); });
+});
 const resultsFile = path.join(repoDir, 'tests', 'last-browser-result.json');
 try { rmSync(resultsFile, { force: true }); } catch {}
 
@@ -31,7 +39,7 @@ const server = spawn('python3', ['tests/serve.py', '--port', String(PORT)], { cw
 server.on('error', e => die('静态服务(python3)', e));
 const chrome = spawn(CHROME, [
   '--headless=new', '--no-sandbox', '--disable-gpu', '--disable-dev-shm-usage',
-  '--remote-debugging-port=9222', '--user-data-dir=/tmp/chrome-profile', 'about:blank',
+  '--remote-debugging-port=0', `--user-data-dir=${profile}`, 'about:blank',
 ], { stdio: ['ignore', 'ignore', 'pipe'] });
 chrome.on('error', e => die(`浏览器(${CHROME})`, e));
 process.on('exit', () => { try { chrome.kill(); server.kill(); } catch {} });
@@ -40,7 +48,8 @@ const sleep = ms => new Promise(r => setTimeout(r, ms));
 async function wsUrl() {
   for (let i = 0; i < 60; i++) {
     try {
-      const r = await fetch('http://127.0.0.1:9222/json/version');
+      const port = readFileSync(path.join(profile, 'DevToolsActivePort'), 'utf8').split('\n')[0];
+      const r = await fetch(`http://127.0.0.1:${port}/json/version`);
       return (await r.json()).webSocketDebuggerUrl;
     } catch { await sleep(500); }
   }
@@ -70,11 +79,11 @@ for (let i = 0; i < 120 && !done; i++) {
   await sleep(1000);
   try {
     const { result } = await send('Runtime.evaluate', {
-      expression: 'window.fixtureTestResults ? window.fixtureTestResults.length : -1',
+      expression: '({count: window.fixtureTestResults?.length ?? -1, done: window.fixtureTestsDone === true})',
       returnByValue: true,
     }, sessionId);
-    const n = result.value ?? -1;
-    if (n >= 13) done = true;
+    const n = result.value?.count ?? -1;
+    done = result.value?.done === true;
     stale = n === last ? stale + 1 : 0;
     last = n;
     if (stale >= 20) break; // 20 秒无进展视为卡死（某项 check 抛错后结果数不再增长）
@@ -90,7 +99,7 @@ try {
   }, sessionId);
   const data = JSON.parse(result.value);
   const failed = data.results.filter(r => !r.pass).map(r => r.name);
-  report = { total: data.results.length, passed: data.results.length - failed.length, failed, error: data.error, stats: data.stats ? { states: data.stats.states, groups: data.stats.groups?.length } : null };
+  report = { completed: done, total: data.results.length, passed: data.results.length - failed.length, failed, error: data.error, stats: data.stats ? { states: data.stats.states, groups: data.stats.groups?.length } : null };
 } catch (e) {
   report.failed = [`CDP 收集失败: ${e.message}`];
 }
@@ -102,7 +111,31 @@ try {
 if (existsSync(resultsFile)) {
   try { report.serverPosted = JSON.parse(readFileSync(resultsFile, 'utf8')).results?.length ?? null; } catch {}
 }
+try {
+  if (!report.completed || report.failed.length) throw new Error('main fixture did not complete successfully');
+  report.panelChecks = await panelChecks(send, sessionId, 'userscript');
+  // A reload must also pass when the previous run persisted an edge position.
+  await send('Page.navigate', {url: `http://127.0.0.1:${PORT}/fixture.html`}, sessionId);
+  let repeat;
+  for (let i=0; i<150; i++) {
+    await sleep(100);
+    const {result} = await send('Runtime.evaluate', {expression: '({done: window.fixtureTestsDone===true, results: window.fixtureTestResults || []})', returnByValue:true}, sessionId);
+    repeat=result.value;
+    if(repeat?.done) break;
+  }
+  if (!repeat?.done || repeat.results.some(r=>!r.pass)) throw new Error('persisted-position fixture rerun failed: '+JSON.stringify(repeat));
+  report.repeatTotal=repeat.results.length;
+  await send('Page.navigate', {url: `http://127.0.0.1:${PORT}/extension-fixture.html`}, sessionId);
+  for(let i=0; i<50; i++) {
+    await sleep(100);
+    const {result}=await send('Runtime.evaluate',{expression: "document.title==='Extension panel fixture' && !!document.getElementById('kimi-lazy-panel')", returnByValue:true},sessionId);
+    if(result.value)break;
+  }
+  const {result:initial}=await send('Runtime.evaluate',{expression:"document.getElementById('kimi-lazy-panel').style.left",returnByValue:true},sessionId);
+  if(initial.value) throw new Error('extension restored a position belonging to another origin');
+  report.panelChecks.push(...await panelChecks(send, sessionId, 'extension'));
+} catch(e) { report.failed.push(e.message); }
 writeFileSync(path.join(outDir, 'cdp-report.json'), JSON.stringify(report, null, 2) + '\n');
 console.log(JSON.stringify(report));
 chrome.kill(); server.kill();
-process.exit(report.total === 13 && report.passed === 13 ? 0 : 1);
+process.exit(report.completed && report.total > 0 && report.passed === report.total && !report.failed.length ? 0 : 1);

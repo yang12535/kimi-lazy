@@ -1,0 +1,12 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Extension panel fixture</title>
+<script type="application/json" src="/assets/index--0t1wzw_.js"></script>
+<script>
+window.extensionStorage = {
+  'kimiLazyPanelPos:http://unrelated.invalid': {fx: 0.01, fy: 0.01}
+};
+window.chrome = {storage: {local: {
+  async get() { return structuredClone(window.extensionStorage); },
+  async set(value) { Object.assign(window.extensionStorage, structuredClone(value)); }
+}}};
+</script>
+<script defer src="/extension/panel.js"></script></head><body>Isolated extension panel; storage API shim.</body></html>

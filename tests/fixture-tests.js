@@ -1,4 +1,5 @@
 window.runFixtureTests = async (options = {}) => {
+  window.fixtureTestsDone=false;
   const results=window.fixtureTestResults=[];
   const flush=async()=>{await fixture.tick();await new Promise(requestAnimationFrame);await fixture.tick();};
   const check=(name,ok,detail)=>{results.push({name,pass:!!ok,detail});if(!ok)throw new Error(JSON.stringify(results));};
@@ -36,8 +37,11 @@ window.runFixtureTests = async (options = {}) => {
   check('session change cleans old IDs and detached instances',document.querySelectorAll('[data-turn-id^="t"]').length===0 && main().counts[0].total===10 && api.stats().states<30,api.stats().states);
   const panelHost=document.getElementById('kimi-lazy-panel');
   const tg=panelHost.shadowRoot.getElementById('toggle'),bodyEl=panelHost.shadowRoot.getElementById('body');
-  const r0=panelHost.getBoundingClientRect();
   const pe=(type,x,y)=>tg.dispatchEvent(new PointerEvent(type,{pointerId:7,clientX:x,clientY:y,button:0,bubbles:true}));
+  // Establish a known start even when a previous fixture run saved the top-left corner.
+  const initial=panelHost.getBoundingClientRect();
+  pe('pointerdown',initial.left+10,initial.top+10);pe('pointermove',160,90);pe('pointerup',160,90);
+  const r0=panelHost.getBoundingClientRect();
   pe('pointerdown',r0.left+10,r0.top+10);pe('pointermove',r0.left-90,r0.top+60);pe('pointerup',r0.left-90,r0.top+60);
   const r1=panelHost.getBoundingClientRect();
   let savedPos=null;try{savedPos=JSON.parse(localStorage.getItem('kimi-lazy.userscript.pos.v1')||'null');}catch{}
@@ -45,11 +49,12 @@ window.runFixtureTests = async (options = {}) => {
   pe('pointerdown',r1.left+10,r1.top+10);pe('pointermove',-5000,-5000);pe('pointerup',-5000,-5000);
   const r2=panelHost.getBoundingClientRect();
   check('panel drag clamps inside the viewport',r2.left>=3 && r2.top>=3 && r2.right<=innerWidth-3 && r2.bottom<=innerHeight-3,{l:r2.left,t:r2.top,r:r2.right,b:r2.bottom,vw:innerWidth,vh:innerHeight});
-  tg.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+  tg.dispatchEvent(new MouseEvent('click',{bubbles:true,detail:1}));
   const suppressed=bodyEl.hidden;
-  await new Promise(r=>setTimeout(r,400));tg.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+  await new Promise(r=>setTimeout(r,400));tg.dispatchEvent(new MouseEvent('click',{bubbles:true,detail:1}));
   check('click after drag is suppressed, later click opens the panel',suppressed===true && bodyEl.hidden===false,{suppressed,hidden:bodyEl.hidden});
-  tg.dispatchEvent(new MouseEvent('click',{bubbles:true}));
+  tg.dispatchEvent(new MouseEvent('click',{bubbles:true,detail:1}));
   check('adapter reports no error',api.stats().error==='');
+  window.fixtureTestsDone=true;
   return results;
 };
