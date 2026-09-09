@@ -16,27 +16,26 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: '24'
+      - name: Configure commit identity
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
       - name: Detect new upstream frontend builds
         id: detect
         run: python3 ci/check_upstream.py
       - name: Persist upstream state when nothing to adapt
         if: steps.detect.outputs.new_ok == '[]'
-        run: |
-          set -e
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git pull --rebase origin main
-          # 新版本复用已知构建时只有 state 与注释范围变化，一并入库（Codex P2）
-          git add .github/upstream-state.json src/core/main.js src/extension/panel.js src/userscript/bootstrap.js src/userscript/panel.js
-          if git diff --cached --quiet; then
-            echo '状态无变化'
-            exit 0
-          fi
-          git commit -qm 'chore(ci): 上游版本状态更新（无新构建）'
-          git push origin HEAD:main
+        run: bash ci/persist_state.sh
+      - name: Prepare adaptation branch
+        if: steps.detect.outputs.new_ok != '[]'
+        env:
+          NEW_OK: ${{ steps.detect.outputs.new_ok }}
+        run: python3 ci/prepare_branch.py
       - name: Adapt whitelist + regression tests
         if: steps.detect.outputs.new_ok != '[]'
         run: python3 ci/add_build.py ${{ join(fromJSON(steps.detect.outputs.new_ok).*.asset, ' ') }}
@@ -81,42 +80,21 @@ jobs:
           PY
           )
           branch="bot/frontend-${first}"
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          if [ "$(gh pr list --state open --head "$branch" --json number --jq 'length')" != "0" ]; then
-            echo "分支 $branch 已有开放 PR，跳过"
-            exit 0
-          fi
-          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
-            echo "远端已存在 $branch（上次仅开 PR 步骤失败），复用该分支"
-            git checkout -q -- .
-            # actions/checkout 默认窄 refspec，必须显式取到远端跟踪引用（Codex P1）
-            git fetch -q origin "refs/heads/$branch:refs/remotes/origin/$branch"
-            git checkout -q -B "$branch" "origin/$branch"
-            # 分支创建后若上游又发版，本批新构建可能未进该分支：补齐而非丢弃（Codex P2）
-            missing=$(python3 - <<'PY'
-          import json, os, re
-          from pathlib import Path
-          text = Path('src/core/main.js').read_text()
-          m = re.search(r'BUILDS\s*=\s*new\s+Set\s*\(\s*\[([^\]]*)\]', text)
-          have = set(re.findall(r"'(/assets/index-[\w-]+\.js)'", m.group(1))) if m else set()
-          print(' '.join(x['asset'] for x in json.loads(os.environ['NEW_OK']) if x['asset'] not in have))
-          PY
-          )
-            if [ -n "$missing" ]; then
-              python3 ci/add_build.py $missing
-              git add -A
-              git commit -qm "补齐同批新构建（watch-upstream 自动）"
-              git push -q origin "$branch"
-            fi
-          else
-            git checkout -q -b "$branch"
-            git add -A
+          # The recovered branch was built and tested by the preceding steps.
+          test "$(git branch --show-current)" = "$branch"
+          git add .github/upstream-state.json src/core/main.js src/extension/panel.js src/userscript/bootstrap.js src/userscript/panel.js
+          if ! git diff --cached --quiet; then
             git commit -qm "适配上游新前端构建（watch-upstream 自动）" -qm "$(cat /tmp/pr-commits.txt)"
-            git push -q origin "$branch"
           fi
-          gh pr create --base main --head "$branch" \
-            --title "适配上游新前端构建 ${first}（自动）" --body-file /tmp/pr-body.md
+          git push -q origin "$branch"
+          pr=$(gh pr list --state open --head "$branch" --json number --jq '.[0].number // empty')
+          if [ -n "$pr" ]; then
+            gh api --method PATCH "repos/$GITHUB_REPOSITORY/pulls/$pr" \
+              -f title="适配上游新前端构建 ${first}（自动）" -f body="$(cat /tmp/pr-body.md)" --silent
+          else
+            gh pr create --base main --head "$branch" \
+              --title "适配上游新前端构建 ${first}（自动）" --body-file /tmp/pr-body.md
+          fi
       - name: File issue for contract-breaking builds
         if: steps.detect.outputs.new_fail != '[]'
         env:
