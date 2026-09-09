@@ -9,11 +9,12 @@
   host.id = 'kimi-lazy-panel';
   const shadow = host.attachShadow({ mode: 'open' });
   shadow.innerHTML = `<style>
-    :host{position:fixed;right:18px;top:62px;z-index:2147483000;font:13px/1.55 system-ui;color:#eee;color-scheme:dark}
-    button,input{font:inherit}button{cursor:pointer;border:1px solid #555;border-radius:7px;padding:6px 10px;background:#292929;color:#eee}
+    :host{position:fixed;right:18px;top:62px;z-index:2147483000;font:13px/1.55 system-ui;color:#eee;color-scheme:dark;width:max-content;max-width:calc(100vw - 20px)}
+    *{box-sizing:border-box}button,input{font:inherit}button{cursor:pointer;border:1px solid #555;border-radius:7px;padding:6px 10px;background:#292929;color:#eee}
     button:hover{background:#393939}button:focus-visible,input:focus-visible{outline:2px solid #7ca7ff;outline-offset:2px}
-    #toggle{box-shadow:0 2px 12px #0005;background:#222e;backdrop-filter:blur(6px)}
-    #body{margin-top:6px;width:270px;padding:15px;background:#202020;border:1px solid #555;border-radius:12px;box-shadow:0 8px 28px #0006}
+    #toggle{box-shadow:0 2px 12px #0005;background:#222e;backdrop-filter:blur(6px);touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
+    #toggle.dragging{cursor:grabbing;background:#393939}
+    #body{position:absolute;top:calc(100% + 6px);left:0;width:270px;max-width:calc(100vw - 20px);max-height:calc(100dvh - 20px);overflow:auto;padding:15px;background:#202020;border:1px solid #555;border-radius:12px;box-shadow:0 8px 28px #0006}
     #body[hidden]{display:none}strong{font-size:15px}label{display:flex;justify-content:space-between;align-items:center;margin:10px 0;gap:12px}
     input[type=number]{width:65px;background:#151515;color:#eee;border:1px solid #666;border-radius:5px;padding:3px 5px}
     input[type=checkbox]{accent-color:#7ca7ff}p{margin:10px 0;color:#bbb}#status{color:#b6cbff}.buttons{display:flex;gap:7px;flex-wrap:wrap}
@@ -40,11 +41,87 @@
     for (const key of Object.keys(defaults)) $(key)[typeof defaults[key] === 'boolean' ? 'checked' : 'value'] = value[key];
     window.dispatchEvent(new CustomEvent('kimi-lazy-config', { detail: JSON.stringify(value) }));
   }
-  $('toggle').onclick = () => {
-    $('body').hidden = !$('body').hidden;
-    $('toggle').setAttribute('aria-expanded', String(!$('body').hidden));
+  const toggle = $('toggle'), body = $('body');
+  const POS_KEY = 'kimiLazyPanelPos:' + location.origin;
+  let lastDragEnd = 0, position = null;
+  // Resolve env() through CSS so dragging and restoring retain mobile safe areas.
+  const safeArea = document.createElement('div');
+  safeArea.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)';
+  shadow.append(safeArea);
+  function bounds() {
+    const s = getComputedStyle(safeArea);
+    return { left: Math.max(4, parseFloat(s.paddingLeft) || 0), top: Math.max(4, parseFloat(s.paddingTop) || 0),
+      right: window.innerWidth - Math.max(4, parseFloat(s.paddingRight) || 0),
+      bottom: window.innerHeight - Math.max(4, parseFloat(s.paddingBottom) || 0) };
+  }
+  const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), Math.max(lo, hi));
+  const validPos = pos => pos && Number.isFinite(pos.fx) && Number.isFinite(pos.fy);
+  function flipBody() {
+    if (body.hidden) return;
+    const r = host.getBoundingClientRect(), b = bounds();
+    const above = Math.max(0, r.top - b.top - 6), below = Math.max(0, b.bottom - r.bottom - 6);
+    const up = above > below;
+    body.style.maxWidth = Math.max(0, b.right - b.left) + 'px';
+    body.style.maxHeight = (up ? above : below) + 'px';
+    body.style.right = 'auto'; body.style.bottom = 'auto';
+    const size = body.getBoundingClientRect();
+    const preferredLeft = r.left + r.width / 2 > window.innerWidth / 2 ? r.right - size.width : r.left;
+    body.style.left = (clamp(preferredLeft, b.left, b.right - size.width) - r.left) + 'px';
+    body.style.top = (up ? -size.height - 6 : r.height + 6) + 'px';
+  }
+  function setPos(left, top) {
+    const r = host.getBoundingClientRect(), b = bounds();
+    host.style.right = 'auto';
+    host.style.left = clamp(left, b.left, b.right - r.width) + 'px';
+    host.style.top = clamp(top, b.top, b.bottom - r.height) + 'px';
+    flipBody();
+  }
+  function restorePosition(pos) {
+    if (!validPos(pos)) return;
+    position = { fx: pos.fx, fy: pos.fy };
+    setPos(position.fx * window.innerWidth, position.fy * window.innerHeight);
+  }
+  function savePos() {
+    if (!host.style.left) return;
+    position = { fx: parseFloat(host.style.left) / window.innerWidth, fy: parseFloat(host.style.top) / window.innerHeight };
+    try { chrome.storage.local.set({ [POS_KEY]: position }).catch(() => {}); } catch { /* fixture / invalidated extension */ }
+  }
+  const drag = { id: -1, sx: 0, sy: 0, baseL: 0, baseT: 0, moved: false };
+  toggle.addEventListener('pointerdown', e => {
+    if (e.button > 0 || drag.id !== -1) return;
+    const r = host.getBoundingClientRect();
+    drag.id = e.pointerId; drag.sx = e.clientX; drag.sy = e.clientY; drag.baseL = r.left; drag.baseT = r.top; drag.moved = false;
+    try { toggle.setPointerCapture(e.pointerId); } catch { /* synthetic events have no active pointer */ }
+  });
+  toggle.addEventListener('pointermove', e => {
+    if (e.pointerId !== drag.id) return;
+    const dx = e.clientX - drag.sx, dy = e.clientY - drag.sy;
+    if (!drag.moved && Math.hypot(dx, dy) < 6) return;
+    if (!drag.moved) { drag.moved = true; toggle.classList.add('dragging'); }
+    setPos(drag.baseL + dx, drag.baseT + dy);
+  });
+  function endDrag(e) {
+    if (e.pointerId !== drag.id) return;
+    drag.id = -1;
+    toggle.classList.remove('dragging');
+    if (drag.moved) { drag.moved = false; lastDragEnd = Date.now(); savePos(); }
+  }
+  toggle.addEventListener('pointerup', endDrag);
+  toggle.addEventListener('pointercancel', endDrag);
+  toggle.addEventListener('lostpointercapture', endDrag);
+  window.addEventListener('resize', () => {
+    if (position) restorePosition(position);
+    else { const r = host.getBoundingClientRect(); setPos(r.left, r.top); }
+  });
+  toggle.addEventListener('click', e => {
+    if (e.detail !== 0 && Date.now() - lastDragEnd < 350) return;
+    body.hidden = !body.hidden;
+    toggle.setAttribute('aria-expanded', String(!body.hidden));
+    flipBody();
     action('status');
-  };
+  });
+  new ResizeObserver(flipBody).observe(body);
+  flipBody();
   $('save').onclick = async () => {
     const value = {};
     for (const key of Object.keys(defaults)) {
@@ -73,9 +150,14 @@
     } catch { /* Only bounded, aggregate status is accepted. */ }
   });
   (async () => {
-    let saved = {};
-    try { saved = (await chrome.storage.local.get('kimiLazySettings')).kimiLazySettings || {}; } catch { /* fixture / invalidated extension */ }
+    let saved = {}, pos = null;
+    try {
+      const all = await chrome.storage.local.get(['kimiLazySettings', POS_KEY]);
+      saved = all.kimiLazySettings || {};
+      pos = all[POS_KEY] || null;
+    } catch { /* fixture / invalidated extension */ }
     apply({ ...defaults, ...saved });
+    if (!position && drag.id === -1) restorePosition(pos);
     action('status');
   })();
 })();
