@@ -9,6 +9,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+from check_upstream import refresh_comment
+
 ROOT = Path(__file__).resolve().parent.parent
 ASSET_RE = re.compile(r'^/assets/index-[\w-]+\.js$')
 TARGETS = ['src/core/main.js', 'src/extension/panel.js', 'src/userscript/bootstrap.js', 'src/userscript/panel.js']
@@ -30,6 +32,8 @@ def main():
                 raise SystemExit(f'{rel} 不是 BUILDS Set 形态，需人工检查')
             p.write_text(text[:m.end(1)] + f"'{asset}', " + text[m.end(1):])
             print(f'{rel}: +{asset}')
+
+    refresh_comment()
 
     b = subprocess.run(['python3', 'scripts/build.py'], cwd=ROOT, capture_output=True, text=True, timeout=300)
     if b.returncode != 0:

@@ -23,6 +23,38 @@ REGISTRY = os.environ.get('NPM_REGISTRY', 'https://registry.npmjs.org').rstrip('
 ASSET_RE = re.compile(r'/assets/index-[\w-]+\.js')
 STATE_PATH = ROOT / '.github' / 'upstream-state.json'
 CONTRACT = json.loads((ROOT / 'ci' / 'contract.json').read_text())
+TARGETS = ['src/core/main.js', 'src/extension/panel.js', 'src/userscript/bootstrap.js', 'src/userscript/panel.js']
+LIST_RE = re.compile(r'BUILDS\s*=\s*new\s+Set\s*\(\s*\[([^\]]*)\]')
+COMMENT_RE = re.compile(r'(// Known frontend builds: Kimi Web bundles shipped with kimi-code CLI )[\d.]+–[\d.]+(\.)')
+
+
+def refresh_comment():
+    """把版本范围注释同步为白名单实际覆盖的 CLI 版本（数据来自 upstream-state.json）。
+
+    在状态持久化路径也会运行：新版本复用已知构建时不走 add_build.py，
+    注释上界仍需随 state 前移。失败只告警，不阻断主流程。
+    """
+    m = LIST_RE.search((ROOT / 'src/core/main.js').read_text())
+    if not m:
+        return
+    whitelist = set(re.findall(r"'(/assets/index-[\w-]+\.js)'", m.group(1)))
+    try:
+        versions = json.loads(STATE_PATH.read_text())['versions']
+        covered = sorted((v for v, a in versions.items() if a in whitelist),
+                         key=lambda v: tuple(int(x) for x in v.split('.')))
+    except Exception as e:
+        print(f'警告：注释版本范围刷新失败：{e}', file=sys.stderr)
+        return
+    if not covered:
+        return
+    rng = f'{covered[0]}–{covered[-1]}'
+    for rel in TARGETS:
+        p = ROOT / rel
+        text = p.read_text()
+        new = COMMENT_RE.sub(lambda mm: mm.group(1) + rng + mm.group(2), text)
+        if new != text:
+            p.write_text(new)
+            print(f'{rel}: 注释版本范围 → {rng}')
 
 
 def fetch(url, timeout=120):
@@ -82,6 +114,7 @@ def main():
             print(f'  {ver}: 抓取失败 {e}（下轮重试）', file=sys.stderr)
 
     STATE_PATH.write_text(json.dumps(state, ensure_ascii=False, indent=2) + '\n')
+    refresh_comment()
     out = {'new_ok': new_ok, 'new_fail': new_fail}
     print(json.dumps(out, ensure_ascii=False))
     gh_out = os.environ.get('GITHUB_OUTPUT')
