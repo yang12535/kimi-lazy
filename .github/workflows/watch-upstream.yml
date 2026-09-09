@@ -58,7 +58,27 @@ jobs:
           NEW_FAIL: ${{ steps.detect.outputs.new_fail }}
         run: |
           set -e
-          first=$(python3 -c "import json,os; print(json.loads(os.environ['NEW_OK'])[0]['asset'].split('/')[-1].replace('.js',''))")
+          # 正文与提交信息由单个 python heredoc 生成：引号定界符阻止 shell 解释反引号。
+          first=$(python3 - <<'PY'
+          import json, os
+          items = json.loads(os.environ['NEW_OK'])
+          with open('/tmp/pr-body.md', 'w') as f:
+              f.write('## 自动适配（watch-upstream）\n\n契约核对通过并加入白名单：\n\n')
+              for x in items:
+                  f.write(f"- `{x['asset']}` ← CLI {', '.join(x['versions'])}\n")
+              f.write('\n验证：契约 19 项标识 · node 回归 · 无头 Chrome 夹具全量（本 workflow 内执行）。\n')
+              fail = json.loads(os.environ.get('NEW_FAIL') or '[]')
+              if fail:
+                  f.write('\n⚠️ 同批发现契约破坏的构建（未放行，另见 issue）：\n\n')
+                  for x in fail:
+                      f.write(f"- `{x['asset']}` 缺 {', '.join(x['missing'])}\n")
+              f.write('\n合并后如需发版，流程见 README「构建」节（签名私钥不在 CI）。\n')
+          with open('/tmp/pr-commits.txt', 'w') as f:
+              for x in items:
+                  f.write(f"- {x['asset']} ← CLI {', '.join(x['versions'])}\n")
+          print(items[0]['asset'].split('/')[-1].replace('.js', ''))
+          PY
+          )
           branch="bot/frontend-${first}"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
@@ -66,27 +86,19 @@ jobs:
             echo "分支 $branch 已有开放 PR，跳过"
             exit 0
           fi
-          git checkout -b "$branch"
-          git add -A
-          git commit -qm "适配上游新前端构建（watch-upstream 自动）
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "远端已存在 $branch（上次仅开 PR 步骤失败），复用该分支"
+            git checkout -q -- .
+            git fetch -q origin "$branch"
+            git checkout -q "$branch"
+          else
+            git checkout -q -b "$branch"
+            git add -A
+            git commit -qm "适配上游新前端构建（watch-upstream 自动）
 
-          $(python3 -c "import json,os; [print('-', x['asset'], '← CLI', ', '.join(x['versions'])) for x in json.loads(os.environ['NEW_OK'])]")"
-          git push -q origin "$branch"
-          {
-            echo '## 自动适配（watch-upstream）'
-            echo
-            echo '契约核对通过并加入白名单：'
-            python3 -c "import json,os; [print('- `'+x['asset']+'` ← CLI '+', '.join(x['versions'])) for x in json.loads(os.environ['NEW_OK'])]"
-            echo
-            echo '验证：契约 19 项标识 · node 回归 · 无头 Chrome 夹具 13 项（本 workflow 内执行）。'
-            if [ "$NEW_FAIL" != "[]" ]; then
-              echo
-              echo '⚠️ 同批发现契约破坏的构建（未放行，另见 issue）：'
-              python3 -c "import json,os; [print('- `'+x['asset']+'` 缺 '+', '.join(x['missing'])) for x in json.loads(os.environ['NEW_FAIL'])]"
-            fi
-            echo
-            echo '合并后如需发版，流程见 README「构建」节（签名私钥不在 CI）。'
-          } > /tmp/pr-body.md
+            $(cat /tmp/pr-commits.txt)"
+            git push -q origin "$branch"
+          fi
           gh pr create --base main --head "$branch" \
             --title "适配上游新前端构建 ${first}（自动）" --body-file /tmp/pr-body.md
       - name: File issue for contract-breaking builds
@@ -95,11 +107,13 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NEW_FAIL: ${{ steps.detect.outputs.new_fail }}
         run: |
-          {
-            echo '## 上游新构建契约破坏（watch-upstream 自动报告）'
-            echo
-            python3 -c "import json,os; [print('- `'+x['asset']+'` ← CLI '+', '.join(x['versions'])+'，缺：'+', '.join(x['missing'])) for x in json.loads(os.environ['NEW_FAIL'])]"
-            echo
-            echo '按 issue #2 的设计，这类构建不机械放行，需要人工核对组件/接口改名后更新 ci/contract.json 与适配代码。'
-          } > /tmp/issue-body.md
+          python3 - <<'PY'
+          import json, os
+          items = json.loads(os.environ['NEW_FAIL'])
+          with open('/tmp/issue-body.md', 'w') as f:
+              f.write('## 上游新构建契约破坏（watch-upstream 自动报告）\n\n')
+              for x in items:
+                  f.write(f"- `{x['asset']}` ← CLI {', '.join(x['versions'])}，缺：{', '.join(x['missing'])}\n")
+              f.write('\n按 issue #2 的设计，这类构建不机械放行，需要人工核对组件/接口改名后更新 ci/contract.json 与适配代码。\n')
+          PY
           gh issue create --title '上游前端契约破坏，需人工适配' --body-file /tmp/issue-body.md
