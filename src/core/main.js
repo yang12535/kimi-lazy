@@ -2,8 +2,8 @@
 (() => {
   'use strict';
   if (window.__KIMI_LAZY__ || !window.KimiLazyPolicy) return;
-  // Known frontend builds: Kimi Web bundles shipped with kimi-code CLI 0.33.0–0.41.0.
-  const BUILDS = new Set(['/assets/index-Bxn5yOTB.js', '/assets/index-CgXirkUy.js', '/assets/index-ClWTW3HX.js', '/assets/index-CvgiEu-R.js', '/assets/index-B-HzRssS.js', '/assets/index-yKYHPeXU.js', '/assets/index-BdL5hCoZ.js', '/assets/index-D-7nOosq.js', '/assets/index-HRJ6xRtC.js', '/assets/index-CiHMlsuo.js', '/assets/index--0t1wzw_.js', '/assets/index-BkUUBejk.js']);
+  // Known frontend builds: Kimi Web bundles shipped with kimi-code CLI 0.33.0–0.42.0.
+  const BUILDS = new Set(['/assets/index-HU0LCM-X.js', '/assets/index-Bxn5yOTB.js', '/assets/index-CgXirkUy.js', '/assets/index-ClWTW3HX.js', '/assets/index-CvgiEu-R.js', '/assets/index-B-HzRssS.js', '/assets/index-yKYHPeXU.js', '/assets/index-BdL5hCoZ.js', '/assets/index-D-7nOosq.js', '/assets/index-HRJ6xRtC.js', '/assets/index-CiHMlsuo.js', '/assets/index--0t1wzw_.js', '/assets/index-BkUUBejk.js']);
   const { WindowPolicy } = window.KimiLazyPolicy;
   const names = new Set(['ChatPane', 'ActivityRun', 'TurnFold', 'ThinkingBlock']);
   let config = { enabled: true, keep: 20, blocks: 20, idleMinutes: 10, auto: true };

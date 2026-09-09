@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const BUILDS = new Set(['/assets/index-Bxn5yOTB.js', '/assets/index-CgXirkUy.js', '/assets/index-ClWTW3HX.js', '/assets/index-CvgiEu-R.js', '/assets/index-B-HzRssS.js', '/assets/index-yKYHPeXU.js', '/assets/index-BdL5hCoZ.js', '/assets/index-D-7nOosq.js', '/assets/index-HRJ6xRtC.js', '/assets/index-CiHMlsuo.js', '/assets/index--0t1wzw_.js', '/assets/index-BkUUBejk.js']);
+  const BUILDS = new Set(['/assets/index-HU0LCM-X.js', '/assets/index-Bxn5yOTB.js', '/assets/index-CgXirkUy.js', '/assets/index-ClWTW3HX.js', '/assets/index-CvgiEu-R.js', '/assets/index-B-HzRssS.js', '/assets/index-yKYHPeXU.js', '/assets/index-BdL5hCoZ.js', '/assets/index-D-7nOosq.js', '/assets/index-HRJ6xRtC.js', '/assets/index-CiHMlsuo.js', '/assets/index--0t1wzw_.js', '/assets/index-BkUUBejk.js']);
   if (!Array.from(document.scripts).some(s => {
     try { return BUILDS.has(new URL(s.src).pathname); } catch { return false; }
   })) return;
@@ -32,7 +32,7 @@
     <div class="buttons"><button id="save">应用设置</button><button id="recent">回到最新并回收</button></div>
     <p>历史数据按需读取，屏幕外仍保留轻量占位。</p>
     <div class="buttons"><button id="all">加载全部历史</button><button id="cancel" hidden>停止加载</button></div>
-    <small>适配前端 0.39.1。回收浏览器渲染组件；Kimi 自身的原始消息缓存仍保留。关闭此开关可恢复原生界面。</small>
+    <small>仅在已核对的前端构建启用。回收浏览器渲染组件；Kimi 自身的原始消息缓存仍保留。关闭此开关可恢复原生界面。</small>
   </section>`;
   document.documentElement.append(host);
   const $ = id => shadow.getElementById(id);
