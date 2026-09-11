@@ -115,6 +115,9 @@ try {
   if (!report.completed || report.failed.length) throw new Error('main fixture did not complete successfully');
   report.panelChecks = await panelChecks(send, sessionId, 'userscript');
   // A reload must also pass when the previous run persisted an edge position.
+  // Clear the completion flags first: Runtime.evaluate can otherwise read the
+  // previous document's passing results before the navigation commits.
+  await send('Runtime.evaluate', {expression: 'window.fixtureTestsDone=false;window.fixtureTestResults=[];'}, sessionId);
   await send('Page.navigate', {url: `http://127.0.0.1:${PORT}/fixture.html`}, sessionId);
   let repeat;
   for (let i=0; i<150; i++) {
@@ -125,16 +128,17 @@ try {
   }
   if (!repeat?.done || repeat.results.some(r=>!r.pass)) throw new Error('persisted-position fixture rerun failed: '+JSON.stringify(repeat));
   report.repeatTotal=repeat.results.length;
-  // CLI 0.42.0+ 的 HistoryWindow 结构：上游自行开窗，适配只做块级窗口。
+  // CLI 0.42.0+ 的 HistoryWindow 结构：上游自行开窗，适配只做折叠体回收。
+  await send('Runtime.evaluate', {expression: 'window.fixtureTestsDone=false;window.fixtureTestResults=[];'}, sessionId);
   await send('Page.navigate', {url: `http://127.0.0.1:${PORT}/fixture.html?hw=1`}, sessionId);
   let hwRun;
   for (let i=0; i<150; i++) {
     await sleep(100);
-    const {result} = await send('Runtime.evaluate', {expression: '({done: window.fixtureTestsDone===true, results: window.fixtureTestResults || []})', returnByValue:true}, sessionId);
+    const {result} = await send('Runtime.evaluate', {expression: '({done: window.fixtureTestsDone===true, hw: location.search.includes("hw=1"), results: window.fixtureTestResults || []})', returnByValue:true}, sessionId);
     hwRun=result.value;
-    if(hwRun?.done) break;
+    if(hwRun?.done && hwRun?.hw) break;
   }
-  if (!hwRun?.done || hwRun.results.some(r=>!r.pass)) throw new Error('HistoryWindow-mode fixture failed: '+JSON.stringify(hwRun));
+  if (!hwRun?.done || !hwRun?.hw || hwRun.results.some(r=>!r.pass) || !String(hwRun.results[0]?.name||'').startsWith('HW:')) throw new Error('HistoryWindow-mode fixture failed: '+JSON.stringify(hwRun));
   report.hwTotal=hwRun.results.length;
   await send('Page.navigate', {url: `http://127.0.0.1:${PORT}/extension-fixture.html`}, sessionId);
   for(let i=0; i<50; i++) {

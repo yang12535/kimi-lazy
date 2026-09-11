@@ -6,7 +6,7 @@ window.runFixtureTests = async (options = {}) => {
   const scroll=document.querySelector('.chat-scroll');
   const api=__KIMI_LAZY__;
   const action=detail=>window.dispatchEvent(new CustomEvent('kimi-lazy-action',{detail}));
-  api.configure({auto:false});action('recent');await flush();
+  api.configure({enabled:true,auto:false});action('recent');await flush();
   if (options.allowLate && fixtureInitialCounts.mounts > 200)
     check('Via late injection unmounts excess native leaves',document.querySelectorAll('pre').length===200 && fixtureCounts.unmounts>=1300,{initial:fixtureInitialCounts,now:{...fixtureCounts}});
   else check('first render mounts only the requested heavy leaves',fixtureInitialCounts.mounts===200 && fixtureInitialCounts.unmounts===0,fixtureInitialCounts);
@@ -68,16 +68,19 @@ window.runHwFixtureTests = async () => {
   let lastStatus=null;
   window.addEventListener('kimi-lazy-status',e=>{try{lastStatus=JSON.parse(e.detail);}catch{}});
   const api=__KIMI_LAZY__;
-  api.configure({auto:false});await flush();
+  const statusNow=()=>{window.dispatchEvent(new CustomEvent('kimi-lazy-action',{detail:'status'}));return lastStatus;};
+  api.configure({enabled:true,auto:false});await flush();
   check('HW: adapter attaches without error',api.stats().error==='',api.stats().error);
   check('HW: upstream turn window untouched, no turn placeholders',!document.querySelector('.kl-placeholder[data-turn-id]') && document.querySelectorAll('.a-msg,.u-bub').length===30,document.querySelectorAll('.a-msg,.u-bub').length);
   const first=document.querySelector('.a-msg');
   check('HW: message blocks windowed natively, adapter adds none',first.querySelectorAll('pre').length===20 && !first.querySelector('.kl-placeholder'),{pre:first.querySelectorAll('pre').length,ph:first.querySelectorAll('.kl-placeholder').length});
-  check('HW: status reports blocks unit',!!lastStatus && lastStatus.unit==='blocks',lastStatus&&lastStatus.unit);
+  const st=statusNow();
+  check('HW: status counts recycled fold bodies',!!st && st.unit==='blocks' && st.asleep===15 && st.mounted===0,st&&{unit:st.unit,mounted:st.mounted,asleep:st.asleep});
   check('HW: collapsed tool bodies are unmounted',document.querySelectorAll('.ar-body pre').length===0,document.querySelectorAll('.ar-body pre').length);
   const head=document.querySelector('.ar-head');head.click();await flush();
   const openBody=document.querySelector('.ar-body.open');
-  check('HW: opened tool group is windowed natively, adapter adds no placeholders',!!openBody && openBody.querySelectorAll('pre').length===20 && openBody.querySelectorAll('.kl-placeholder').length===0,{pre:openBody&&openBody.querySelectorAll('pre').length,ph:openBody&&openBody.querySelectorAll('.kl-placeholder').length});
+  const st2=statusNow();
+  check('HW: opened tool group is windowed natively, adapter adds no placeholders',!!openBody && openBody.querySelectorAll('pre').length===20 && openBody.querySelectorAll('.kl-placeholder').length===0 && st2.mounted===1 && st2.asleep===14,{pre:openBody&&openBody.querySelectorAll('pre').length,ph:openBody&&openBody.querySelectorAll('.kl-placeholder').length,st:st2&&{mounted:st2.mounted,asleep:st2.asleep}});
   api.configure({enabled:false});await flush();
   const restored=document.querySelector('.ar-body.open');
   check('HW: disable restores native rendering',!document.querySelector('.kl-placeholder') && !!restored && restored.querySelectorAll('pre').length===20 && api.stats().error==='',restored&&restored.querySelectorAll('pre').length);
