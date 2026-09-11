@@ -17,7 +17,7 @@
     #body{position:absolute;top:calc(100% + 6px);left:0;width:300px;max-width:calc(100vw - 20px);max-height:70vh;max-height:calc(100dvh - 126px);overflow:auto;overscroll-behavior:contain;padding:15px;background:#202020;border:1px solid #555;border-radius:12px;box-shadow:0 8px 28px #0006}
     #body[hidden]{display:none}strong{font-size:15px}label{display:flex;justify-content:space-between;align-items:center;margin:10px 0;gap:12px}
     input[type=number]{width:65px;background:#151515;color:#eee;border:1px solid #666;border-radius:5px;padding:8px 5px;min-height:44px;font-size:16px}
-    input[type=checkbox]{width:22px;height:22px;flex-shrink:0;accent-color:#7ca7ff}p{margin:10px 0;color:#bbb}#status{color:#b6cbff}.buttons{display:flex;gap:7px;flex-wrap:wrap}
+    input[type=checkbox]{width:22px;height:22px;flex-shrink:0;accent-color:#7ca7ff}input:disabled{opacity:.45}p{margin:10px 0;color:#bbb}#status{color:#b6cbff}.buttons{display:flex;gap:7px;flex-wrap:wrap}
     small{display:block;color:#aaa;margin-top:12px;font-size:11px}#save{background:#234578;border-color:#5580b8}
   </style>
   <button id="toggle" aria-expanded="false" aria-controls="body">轻量浏览</button>
@@ -29,6 +29,7 @@
     <label>每组常驻内容块<input id="blocks" type="number" min="1" max="200" value="20"></label>
     <label>闲置回收（分钟）<input id="idleMinutes" type="number" min="1" max="120" value="10"></label>
     <label>滚动到旧记录时恢复<input id="auto" type="checkbox" checked></label>
+    <p id="native-hint" hidden>0.42.0+ 的消息与内容块窗口由 Kimi 原生管理，以上四项设置暂不生效；折叠内容回收仍自动进行。</p>
     <div class="buttons"><button id="save">应用设置</button><button id="recent">回到最新并回收</button></div>
     <p>历史数据按需读取，屏幕外仍保留轻量占位。</p>
     <div class="buttons"><button id="all">加载全部历史</button><button id="cancel" hidden>停止加载</button></div>
@@ -152,10 +153,15 @@
       const asleep = Number.isInteger(s.asleep) ? s.asleep : 0;
       $('status').textContent = s.error ? `已恢复原生界面：${String(s.error).slice(0,100)}` :
         !s.enabled ? '已关闭 · 使用 Kimi 原生渲染' : !s.attached ? '等待会话消息列表…' :
-        `已渲染 ${mounted} 条 · 休眠 ${asleep} 条${s.fullHistory ? ' · 正在读取历史' : ''}`;
+        `已渲染 ${mounted} ${s.unit === 'blocks' ? '块' : '条'} · 休眠 ${asleep} ${s.unit === 'blocks' ? '块' : '条'}${s.fullHistory ? ' · 正在读取历史' : ''}`;
       $('cancel').hidden = !s.fullHistory;
       $('all').disabled = !!s.fullHistory || !s.hasMore || !s.enabled;
       $('all').textContent = s.hasMore ? '加载全部历史' : '历史已全部读取';
+      // On 0.42.0+ (blocks unit) upstream windows everything list-like natively;
+      // the four tuning knobs only apply to the ≤0.41.x adapter-managed windows.
+      const native = s.unit === 'blocks' && !s.error && !!s.enabled && !!s.attached;
+      for (const key of ['keep', 'blocks', 'idleMinutes', 'auto']) $(key).disabled = native;
+      $('native-hint').hidden = !native;
     } catch { /* Only bounded, aggregate status is accepted. */ }
   });
   apply(initial);

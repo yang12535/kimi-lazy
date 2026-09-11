@@ -18,7 +18,7 @@ npm run fixture
 python3 tests/serve.py
 ```
 
-访问 `http://127.0.0.1:58791/fixture.html` 自动运行 16 项合成会话检查。页面内嵌用户脚本，用于验证首次渲染接入；保持页面可见直到显示结果。结果写入忽略提交的 `tests/last-browser-result.json`。
+访问 `http://127.0.0.1:58791/fixture.html` 自动运行 16 项合成会话检查（追加 `?hw=1` 则运行 7 项 HistoryWindow 结构检查）。页面内嵌用户脚本，用于验证首次渲染接入；保持页面可见直到显示结果。结果写入忽略提交的 `tests/last-browser-result.json`。
 
 实际用户脚本管理器验证：先导入并启用 `dist/kimi-lazy.user.js`，再访问 `/via-fixture.html`。这个页面自身不包含用户脚本标签，等待管理器注入。晚注入时，首项明确验证过多原生组件被卸载，不计作首次渲染优化。
 
@@ -32,4 +32,4 @@ python3 tests/serve.py
 CHROME_BIN=/usr/bin/google-chrome node ci/fixture_check.mjs . /tmp/kimi-lazy-fixture-out
 ```
 
-运行器等待明确的完成信号，执行 16 项主夹具、同网站保留位置后的第二轮夹具，以及用户脚本 / 扩展各 8 项面板检查（窄屏中点与边缘、旋转比例、缩小后恢复、键盘点击、安全区和存储）。扩展面板在真实 Chrome 中运行，存储 API 使用夹具模拟；安全区用解析后的 CSS 内边距模拟，不代表新增手机实测。常规 PR CI 和 watch-upstream 都执行此检查。
+运行器等待明确的完成信号，执行 16 项主夹具、同网站保留位置后的第二轮夹具、7 项 HistoryWindow 模式夹具，以及用户脚本 / 扩展各 8 项面板检查（窄屏中点与边缘、旋转比例、缩小后恢复、键盘点击、安全区和存储）。扩展面板在真实 Chrome 中运行，存储 API 使用夹具模拟；安全区用解析后的 CSS 内边距模拟，不代表新增手机实测。常规 PR CI 和 watch-upstream 都执行此检查。

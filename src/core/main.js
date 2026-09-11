@@ -110,6 +110,25 @@
       return fragment(v) ? copy(v, { children: [wrapper] }) : wrapper;
     });
   }
+  function hasComponent(v, name) {
+    if (!v || typeof v !== 'object') return false;
+    const t = v.type;
+    if (t && typeof t === 'object' && (t.__name === name || t.name === name)) return true;
+    return children(v).some(c => hasComponent(c, name));
+  }
+  // Per-turn block windowing for the ChatPane path (≤0.41.x). On 0.42.0+ upstream
+  // windows turns and per-message blocks natively (HistoryWindow), so there is
+  // nothing left to window here — only fold-body recycling still applies.
+  function processTurn(state, v, id) {
+    return mapTree(v, n => {
+      if (!has(n, 'a-msg')) return n;
+      return copy(n, { children: children(n).map(c => {
+        if (!fragment(c) || !children(c).length || !children(c).every(fragment)) return c;
+        return copy(c, { children: renderList(state, `turn:${id}`, children(c), config.blocks,
+          { protectedIds: liveKeys(children(c)) }) });
+      }) });
+    });
+  }
   function adapt(state, vnode) {
     if (state.path !== location.pathname) {
       state.path = location.pathname; state.groups.clear(); fullHistory = false; route = location.pathname;
@@ -128,21 +147,14 @@
         const list = children(chat).find(n => fragment(n) && children(n).length === props.turns.length &&
           children(n).every((v, i) => v.key === props.turns[i].id));
         if (!list) {
-          if (props.turns.length) throw new Error('消息列表结构与适配版本不同');
+          // 0.42.0+ renders turns inside HistoryWindow, which virtualizes both the
+          // turn list and each message's blocks natively; leave that tree alone.
+          if (props.turns.length && !hasComponent(chat, 'HistoryWindow')) throw new Error('消息列表结构与适配版本不同');
           return chat;
         }
         const mapped = renderList(state, 'turns', children(list), config.keep, {
           turns: true, protectedIds, signatures: props.turns.map(fingerprint),
-          process(v, id) {
-            return mapTree(v, n => {
-              if (!has(n, 'a-msg')) return n;
-              return copy(n, { children: children(n).map(c => {
-                if (!fragment(c) || !children(c).length || !children(c).every(fragment)) return c;
-                return copy(c, { children: renderList(state, `turn:${id}`, children(c), config.blocks,
-                  { protectedIds: liveKeys(children(c)) }) });
-              }) });
-            });
-          }
+          process(v, id) { return processTurn(state, v, id); }
         });
         return copy(chat, { props: { ...chat.props, 'data-kl-owner': state.id },
           children: children(chat).map(c => c === list ? copy(c, { children: mapped }) : c) });
@@ -151,8 +163,10 @@
       const bodyClass = { ActivityRun: 'ar-body', TurnFold: 'tf-body', ThinkingBlock: 'think-body' }[state.name];
       vnode = mapTree(vnode, body => {
         if (!has(body, bodyClass)) return body;
+        state.foldSeen = true;
         // These versions normally keep collapsed bodies mounted with `inert`.
-        if (body.props?.inert === true || body.props?.inert === '') return copy(body, { children: [] });
+        if (body.props?.inert === true || body.props?.inert === '') { state.foldAsleep = true; return copy(body, { children: [] }); }
+        state.foldAsleep = false;
         return mapTree(copy(body), n => {
           if (!fragment(n) || !children(n).length || !children(n).every(fragment)) return n;
           return copy(n, { children: renderList(state, 'items', children(n), config.blocks,
@@ -165,7 +179,7 @@
   }
   function wrap(instance, original) {
     if (originals.has(original)) return original;
-    const state = { id: ++serial, instance, name: instance.type.__name, path: location.pathname, groups: new Map(), used: new Set() };
+    const state = { id: ++serial, instance, name: instance.type.__name, path: location.pathname, groups: new Map(), used: new Set(), foldSeen: false, foldAsleep: false };
     states.set(instance.uid, state);
     const wrapped = function (...args) {
       const result = original.apply(this, args);
@@ -306,12 +320,26 @@
   }
   function status() {
     const main = mainState(), g = main?.groups.get('turns');
-    let mounted = 0, asleep = 0;
-    if (g) for (const r of g.policy.records.values()) r.mounted ? mounted++ : asleep++;
+    let mounted = 0, asleep = 0, unit = 'turns';
+    if (g && g.policy.records.size) {
+      for (const r of g.policy.records.values()) r.mounted ? mounted++ : asleep++;
+    } else {
+      // 0.42.0+ windows turns, message blocks and tool items upstream; what the
+      // adapter still manages there is fold-body recycling, so count those bodies.
+      unit = 'blocks';
+      for (const state of states.values()) {
+        if (state.instance.isUnmounted) continue;
+        if (state.foldSeen) { state.foldAsleep ? asleep++ : mounted++; continue; }
+        for (const [domain, group_] of state.groups) {
+          if (domain !== 'items' && !domain.startsWith('turn:')) continue;
+          for (const r of group_.policy.records.values()) r.mounted ? mounted++ : asleep++;
+        }
+      }
+    }
     window.dispatchEvent(new CustomEvent('kimi-lazy-status', { detail: JSON.stringify({
       supported: supported(), attached: !!main, enabled: config.enabled, error: failed,
-      mounted, asleep, fullHistory, hasMore: !!main?.instance.props.hasMoreMessages,
-      config, version: '0.1.1'
+      mounted, asleep, unit, fullHistory, hasMore: !!main?.instance.props.hasMoreMessages,
+      config, version: '0.1.3'
     }) }));
   }
   function configure(next) {
@@ -363,6 +391,12 @@
           if (state.instance.isUnmounted) states.delete(uid);
           else { state.groups.clear(); queue(state); }
         }
+      }
+      // Late injection (Via) or an idle page can leave the initial scan with no
+      // hooked components; retry while the chat exists but nothing is attached.
+      if (!mainState() && document.querySelector('.chat')) {
+        scan(document.querySelector('#app')?._vnode);
+        for (const state of states.values()) queue(state);
       }
       observe();
     }, 5000);
