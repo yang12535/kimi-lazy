@@ -125,6 +125,17 @@ try {
   }
   if (!repeat?.done || repeat.results.some(r=>!r.pass)) throw new Error('persisted-position fixture rerun failed: '+JSON.stringify(repeat));
   report.repeatTotal=repeat.results.length;
+  // CLI 0.42.0+ 的 HistoryWindow 结构：上游自行开窗，适配只做块级窗口。
+  await send('Page.navigate', {url: `http://127.0.0.1:${PORT}/fixture.html?hw=1`}, sessionId);
+  let hwRun;
+  for (let i=0; i<150; i++) {
+    await sleep(100);
+    const {result} = await send('Runtime.evaluate', {expression: '({done: window.fixtureTestsDone===true, results: window.fixtureTestResults || []})', returnByValue:true}, sessionId);
+    hwRun=result.value;
+    if(hwRun?.done) break;
+  }
+  if (!hwRun?.done || hwRun.results.some(r=>!r.pass)) throw new Error('HistoryWindow-mode fixture failed: '+JSON.stringify(hwRun));
+  report.hwTotal=hwRun.results.length;
   await send('Page.navigate', {url: `http://127.0.0.1:${PORT}/extension-fixture.html`}, sessionId);
   for(let i=0; i<50; i++) {
     await sleep(100);

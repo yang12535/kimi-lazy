@@ -143,7 +143,7 @@
       const asleep = Number.isInteger(s.asleep) ? s.asleep : 0;
       $('status').textContent = s.error ? `已恢复原生界面：${String(s.error).slice(0,100)}` :
         !s.enabled ? '已关闭 · 使用 Kimi 原生渲染' : !s.attached ? '等待会话消息列表…' :
-        `已渲染 ${mounted} 条 · 休眠 ${asleep} 条${s.fullHistory ? ' · 正在读取历史' : ''}`;
+        `已渲染 ${mounted} ${s.unit === 'blocks' ? '块' : '条'} · 休眠 ${asleep} ${s.unit === 'blocks' ? '块' : '条'}${s.fullHistory ? ' · 正在读取历史' : ''}`;
       $('cancel').hidden = !s.fullHistory;
       $('all').disabled = !!s.fullHistory || !s.hasMore || !s.enabled;
       $('all').textContent = s.hasMore ? '加载全部历史' : '历史已全部读取';

@@ -58,3 +58,29 @@ window.runFixtureTests = async (options = {}) => {
   window.fixtureTestsDone=true;
   return results;
 };
+// ?hw=1：模拟 CLI 0.42.0 的 HistoryWindow 结构（上游对消息列表和消息块都原生开窗，
+// 适配器只做折叠体回收与展开后的条目窗口）。
+window.runHwFixtureTests = async () => {
+  window.fixtureTestsDone=false;
+  const results=window.fixtureTestResults=[];
+  const flush=async()=>{await fixture.tick();await new Promise(requestAnimationFrame);await fixture.tick();};
+  const check=(name,ok,detail)=>{results.push({name,pass:!!ok,detail});if(!ok)throw new Error(JSON.stringify(results));};
+  let lastStatus=null;
+  window.addEventListener('kimi-lazy-status',e=>{try{lastStatus=JSON.parse(e.detail);}catch{}});
+  const api=__KIMI_LAZY__;
+  api.configure({auto:false});await flush();
+  check('HW: adapter attaches without error',api.stats().error==='',api.stats().error);
+  check('HW: upstream turn window untouched, no turn placeholders',!document.querySelector('.kl-placeholder[data-turn-id]') && document.querySelectorAll('.a-msg,.u-bub').length===30,document.querySelectorAll('.a-msg,.u-bub').length);
+  const first=document.querySelector('.a-msg');
+  check('HW: message blocks windowed natively, adapter adds none',first.querySelectorAll('pre').length===20 && !first.querySelector('.kl-placeholder'),{pre:first.querySelectorAll('pre').length,ph:first.querySelectorAll('.kl-placeholder').length});
+  check('HW: status reports blocks unit',!!lastStatus && lastStatus.unit==='blocks',lastStatus&&lastStatus.unit);
+  check('HW: collapsed tool bodies are unmounted',document.querySelectorAll('.ar-body pre').length===0,document.querySelectorAll('.ar-body pre').length);
+  const head=document.querySelector('.ar-head');head.click();await flush();
+  const openBody=document.querySelector('.ar-body.open');
+  check('HW: opened tool group is windowed natively, adapter adds no placeholders',!!openBody && openBody.querySelectorAll('pre').length===20 && openBody.querySelectorAll('.kl-placeholder').length===0,{pre:openBody&&openBody.querySelectorAll('pre').length,ph:openBody&&openBody.querySelectorAll('.kl-placeholder').length});
+  api.configure({enabled:false});await flush();
+  const restored=document.querySelector('.ar-body.open');
+  check('HW: disable restores native rendering',!document.querySelector('.kl-placeholder') && !!restored && restored.querySelectorAll('pre').length===20 && api.stats().error==='',restored&&restored.querySelectorAll('pre').length);
+  window.fixtureTestsDone=true;
+  return results;
+};
