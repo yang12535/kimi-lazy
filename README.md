@@ -9,7 +9,7 @@
 | 版本 | 适用场景 | 下载文件 | 页面匹配范围 |
 | --- | --- | --- | --- |
 | 用户脚本 | Via 等支持用户脚本的手机浏览器；Tampermonkey / Violentmonkey | `kimi-lazy.user.js` | 所有 HTTP(S) 域名、IP、端口，通过 Kimi 页面特征决定是否启动 |
-| Chrome 扩展 | 在桌面浏览器访问本机 Kimi | `kimi-lazy-0.1.0.crx` 或 `kimi-lazy-0.1.0-extension.zip` | 默认 `127.0.0.1`、`localhost` 的 HTTP 页面，端口不限 |
+| Chrome 扩展 | 在桌面浏览器访问本机 Kimi | `kimi-lazy-0.1.4.crx` 或 `kimi-lazy-0.1.4-extension.zip` | 默认 `127.0.0.1`、`localhost` 的 HTTP 页面，端口不限 |
 
 两种版本选一种安装即可。用户脚本已在 **Via 7.3.3 / Waydroid Android 13 / WebView 146** 和 **Tampermonkey 5.6 / 桌面 Chrome（MV3）** 中完成安装和运行验证。
 
@@ -45,7 +45,7 @@ CRX 使用 Chrome 原生工具打包，格式为 CRX3。是否允许安装商店
 
 当前白名单覆盖 **kimi-code CLI 0.33.0–0.42.0 的 13 个前端构建**，最新加入 `/assets/index-HU0LCM-X.js`（CLI 0.42.0）。版本到构建的完整映射见 [upstream-state.json](.github/upstream-state.json)。新增构建经过静态契约核对与合成浏览器夹具；各版本并未全部进行真实会话实测。服务端版本不等于前端版本；未知前端构建不会启用适配。
 
-**0.42.0 起上游自带虚拟化**：消息列表、每条消息的内容块和工具组条目都由 Kimi 的 HistoryWindow 组件原生开窗，适配器不再重复处理这些列表，只回收折叠工具组 / 思考块的常驻挂载体；设置里的「常驻最近消息」在该版本不起作用（消息窗口由上游管理），面板计数显示为「块」。0.41.x 及更早版本的行为不变。
+**0.42.0 的 HistoryWindow 是否开窗取决于实际开关**，不能只按组件名或版本判断。该构建的普通会话默认未启用原生开窗：Kimi Lazy 会管理消息、消息内容块和工具条目，四项设置继续生效，面板按「条消息」统计。若页面确实开启原生开窗，则保留原生窗口，只额外回收仍常驻的折叠内容；面板隐藏不适用的设置，并明确显示折叠区回收数量（不代表消息数）。0.41.x 及更早版本保留原有路径。
 
 通过 Vue 自身的渲染流程挂载 / 卸载组件，不删除服务端记录。Kimi 原有的消息缓存仍保留，因此不能把组件或 DOM 的减少比例理解为总内存的减少比例，也不减少模型上下文 Token。单个巨大代码块尚未进行逐行虚拟化。
 
@@ -59,8 +59,8 @@ Via 的 `document-start` 实际执行时机可能变化。实测有一轮先全�
 
 ## 验证
 
-- 8 项 Node 测试：窗口租约、可见保护、消息变化、会话清理、非目标页面和子框架退出等。
-- 浏览器功能检查：16 项合成会话（历史恢复、工具组展开 / 折叠、闲置回收、流式更新、补齐历史、停用还原、面板拖动与边界钳制）+ 7 项 HistoryWindow 结构（CLI 0.42.0+ 上游开窗模式）+ 16 项面板检查。
+- 9 项 Node 测试：窗口租约、可见保护、消息变化、会话清理、非目标页面和子框架退出等。
+- 浏览器功能检查：20 项旧结构合成会话 + 20 项 HistoryWindow 默认关闭模式 + 10 项原生开窗模式 + 两种面板检查；覆盖数量设置、自动恢复、闲置时间、流式更新、补齐历史、停用还原、统计清理和拖动布局。
 - Via 原生脚本安装与运行通过；真实会话显示 **20 条已渲染、39 条休眠**，开关还原正常。
 - Tampermonkey 5.6（MV3，开启「允许用户脚本」）安装与运行通过；真实会话显示 **503 条已渲染、163 条休眠**，从 0.1.0 到 0.1.1 的自动更新链路生效。
 - 320 × 640 窄屏面板检查通过。
@@ -85,7 +85,7 @@ python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```bash
 # 使用你自己保管的 RSA PEM 私钥。
 python3 scripts/build.py --key /absolute/path/to/private-key.pem
-python3 scripts/verify_crx.py dist/kimi-lazy-0.1.0.crx
+python3 scripts/verify_crx.py dist/kimi-lazy-0.1.4.crx
 ```
 
 可以通过 `--chrome /path/to/chrome` 指定打包程序。`src/core/` 由两种版本共享；`src/extension/` 和 `src/userscript/` 分别提供设置面板与注入入口。修改 `project.json` 的版本后重新构建。

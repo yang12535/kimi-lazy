@@ -24,12 +24,14 @@
   <section id="body" aria-label="Kimi 轻量浏览设置" hidden>
     <strong>Kimi 会话轻量浏览</strong>
     <p id="status" role="status">正在连接页面…</p><p id="notice" role="status" hidden></p>
-    <label>启用按需渲染<input id="enabled" type="checkbox" checked></label>
+    <label><span id="enabled-label">启用按需渲染</span><input id="enabled" type="checkbox" checked></label>
+    <div id="tuning">
     <label>常驻最近消息<input id="keep" type="number" min="1" max="200" value="20"></label>
     <label>每组常驻内容块<input id="blocks" type="number" min="1" max="200" value="20"></label>
     <label>闲置回收（分钟）<input id="idleMinutes" type="number" min="1" max="120" value="10"></label>
     <label>滚动到旧记录时恢复<input id="auto" type="checkbox" checked></label>
-    <p id="native-hint" hidden>0.42.0+ 的消息与内容块窗口由 Kimi 原生管理，以上四项设置暂不生效；折叠内容回收仍自动进行。</p>
+    </div>
+    <p id="native-hint" hidden>Kimi 已开启原生按需渲染，消息窗口由页面管理。本开关只控制额外的折叠内容回收；此处计数不包含消息。</p>
     <div class="buttons"><button id="save">应用设置</button><button id="recent">回到最新并回收</button></div>
     <p>历史数据按需读取，屏幕外仍保留轻量占位。</p>
     <div class="buttons"><button id="all">加载全部历史</button><button id="cancel" hidden>停止加载</button></div>
@@ -153,13 +155,15 @@
       const asleep = Number.isInteger(s.asleep) ? s.asleep : 0;
       $('status').textContent = s.error ? `已恢复原生界面：${String(s.error).slice(0,100)}` :
         !s.enabled ? '已关闭 · 使用 Kimi 原生渲染' : !s.attached ? '等待会话消息列表…' :
-        `已渲染 ${mounted} ${s.unit === 'blocks' ? '块' : '条'} · 休眠 ${asleep} ${s.unit === 'blocks' ? '块' : '条'}${s.fullHistory ? ' · 正在读取历史' : ''}`;
+        (s.mode === 'native' ? `原生按需渲染 · 已回收 ${asleep} 个折叠区` :
+          `已渲染 ${mounted} 条消息 · 休眠 ${asleep} 条消息`) + (s.fullHistory ? ' · 正在读取历史' : '');
       $('cancel').hidden = !s.fullHistory;
-      $('all').disabled = !!s.fullHistory || !s.hasMore || !s.enabled;
+      $('all').disabled = !!s.fullHistory || !s.hasMore || !s.enabled || !s.attached || !!s.error;
       $('all').textContent = s.hasMore ? '加载全部历史' : '历史已全部读取';
-      // On 0.42.0+ (blocks unit) upstream windows everything list-like natively;
-      // the four tuning knobs only apply to the ≤0.41.x adapter-managed windows.
-      const native = s.unit === 'blocks' && !s.error && !!s.enabled && !!s.attached;
+      const native = s.mode === 'native' && !!s.attached;
+      $('tuning').hidden = native;
+      $('enabled-label').textContent = native ? '回收折叠内容' : '启用按需渲染';
+      $('recent').textContent = native ? '回到最新' : '回到最新并回收';
       for (const key of ['keep', 'blocks', 'idleMinutes', 'auto']) $(key).disabled = native;
       $('native-hint').hidden = !native;
     } catch { /* Only bounded, aggregate status is accepted. */ }

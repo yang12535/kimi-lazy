@@ -10,7 +10,7 @@ window.runFixtureTests = async (options = {}) => {
   if (options.allowLate && fixtureInitialCounts.mounts > 200)
     check('Via late injection unmounts excess native leaves',document.querySelectorAll('pre').length===200 && fixtureCounts.unmounts>=1300,{initial:fixtureInitialCounts,now:{...fixtureCounts}});
   else check('first render mounts only the requested heavy leaves',fixtureInitialCounts.mounts===200 && fixtureInitialCounts.unmounts===0,fixtureInitialCounts);
-  const main=()=>api.stats().groups.find(s=>s.name==='ChatPane');
+  const main=()=>api.stats().groups.find(s=>s.name===(fixture.hwMode?'HistoryWindow':'ChatPane') && s.counts.some(c=>c.total===fixture.turns.value.length));
   check('latest 20 messages and per-message 20 blocks',main().counts[0].mounted===20 && document.querySelectorAll('pre').length===200,main().counts[0]);
   const old=document.querySelector('.kl-placeholder[data-turn-id="t1"]');
   old.click();await flush();
@@ -35,6 +35,18 @@ window.runFixtureTests = async (options = {}) => {
   check('disable restores all native content without altering data',document.querySelectorAll('.kl-placeholder').length===0 && document.querySelectorAll('.turn-anchor').length===52 && hash===JSON.stringify(fixture.turns.value));
   api.configure({enabled:true});await flush();fixture.switchSession();await flush();api.sweep();await flush();
   check('session change cleans old IDs and detached instances',document.querySelectorAll('[data-turn-id^="t"]').length===0 && main().counts[0].total===10 && api.stats().states<30,api.stats().states);
+  let currentStatus;
+  window.addEventListener('kimi-lazy-status',e=>{currentStatus=JSON.parse(e.detail);});
+  action('status');
+  const settings=document.getElementById('kimi-lazy-panel').shadowRoot;
+  check('message mode keeps all four settings available',currentStatus.mode==='adapter' && currentStatus.unit==='turns' && !settings.getElementById('tuning').hidden && ['keep','blocks','idleMinutes','auto'].every(k=>!settings.getElementById(k).disabled));
+  api.configure({keep:5,blocks:3,idleMinutes:1,auto:false});action('recent');await flush();
+  check('changed message and block limits take effect',main().counts[0].mounted===5 && document.querySelectorAll('pre').length===9,{mounted:main().counts[0].mounted,leaves:document.querySelectorAll('pre').length});
+  scroll.scrollTop=0;api.configure({auto:true});await flush();api.sweep();await flush();
+  check('scrolling to sleeping history restores it automatically',!document.querySelector('.kl-placeholder[data-turn-id="b0"]'));
+  scroll.scrollTop=scroll.scrollHeight;api.sweep(Date.now()+60001);await flush();
+  check('changed idle timeout reclaims offscreen history',!!document.querySelector('.kl-placeholder[data-turn-id="b0"]'));
+  api.configure({keep:20,blocks:20,idleMinutes:10,auto:false});await flush();
   const panelHost=document.getElementById('kimi-lazy-panel');
   const tg=panelHost.shadowRoot.getElementById('toggle'),bodyEl=panelHost.shadowRoot.getElementById('body');
   const pe=(type,x,y)=>tg.dispatchEvent(new PointerEvent(type,{pointerId:7,clientX:x,clientY:y,button:0,bubbles:true}));
@@ -58,8 +70,7 @@ window.runFixtureTests = async (options = {}) => {
   window.fixtureTestsDone=true;
   return results;
 };
-// ?hw=1：模拟 CLI 0.42.0 的 HistoryWindow 结构（上游对消息列表和消息块都原生开窗，
-// 适配器只做折叠体回收与展开后的条目窗口）。
+// ?hw=1 enables native windows explicitly; ?hw=off runs the full adapter suite.
 window.runHwFixtureTests = async () => {
   window.fixtureTestsDone=false;
   const results=window.fixtureTestResults=[];
@@ -75,15 +86,23 @@ window.runHwFixtureTests = async () => {
   const first=document.querySelector('.a-msg');
   check('HW: message blocks windowed natively, adapter adds none',first.querySelectorAll('pre').length===20 && !first.querySelector('.kl-placeholder'),{pre:first.querySelectorAll('pre').length,ph:first.querySelectorAll('.kl-placeholder').length});
   const st=statusNow();
-  check('HW: status counts recycled fold bodies',!!st && st.unit==='blocks' && st.asleep===15 && st.mounted===0,st&&{unit:st.unit,mounted:st.mounted,asleep:st.asleep});
+  check('HW: absent native fold bodies are not counted as recycled',!!st && st.mode==='native' && st.unit==='folds' && st.asleep===0 && st.mounted===0,st&&{unit:st.unit,mounted:st.mounted,asleep:st.asleep});
+  const panel=document.getElementById('kimi-lazy-panel').shadowRoot;
+  check('HW: native panel explains fold counts and hides inapplicable tuning',panel.getElementById('tuning').hidden && !panel.getElementById('native-hint').hidden && panel.getElementById('status').textContent.includes('原生按需渲染'));
   check('HW: collapsed tool bodies are unmounted',document.querySelectorAll('.ar-body pre').length===0,document.querySelectorAll('.ar-body pre').length);
   const head=document.querySelector('.ar-head');head.click();await flush();
   const openBody=document.querySelector('.ar-body.open');
   const st2=statusNow();
-  check('HW: opened tool group is windowed natively, adapter adds no placeholders',!!openBody && openBody.querySelectorAll('pre').length===20 && openBody.querySelectorAll('.kl-placeholder').length===0 && st2.mounted===1 && st2.asleep===14,{pre:openBody&&openBody.querySelectorAll('pre').length,ph:openBody&&openBody.querySelectorAll('.kl-placeholder').length,st:st2&&{mounted:st2.mounted,asleep:st2.asleep}});
+  check('HW: opened tool group is windowed natively, adapter adds no placeholders',!!openBody && openBody.querySelectorAll('pre').length===20 && openBody.querySelectorAll('.kl-placeholder').length===0 && st2.mounted===1 && st2.asleep===0,{pre:openBody&&openBody.querySelectorAll('pre').length,ph:openBody&&openBody.querySelectorAll('.kl-placeholder').length,st:st2&&{mounted:st2.mounted,asleep:st2.asleep}});
+  head.click();await flush();
+  const closed=statusNow();
+  check('HW: closing a natively removed body clears its old mounted count',closed.mounted===0 && closed.asleep===0 && !document.querySelector('.ar-body'));
+  head.click();await flush();
   api.configure({enabled:false});await flush();
   const restored=document.querySelector('.ar-body.open');
   check('HW: disable restores native rendering',!document.querySelector('.kl-placeholder') && !!restored && restored.querySelectorAll('pre').length===20 && api.stats().error==='',restored&&restored.querySelectorAll('pre').length);
+  const disabled=statusNow();
+  check('HW: disabled adapter clears its counters without re-enabling native tuning',disabled.mounted===0 && disabled.asleep===0 && panel.getElementById('tuning').hidden);
   window.fixtureTestsDone=true;
   return results;
 };

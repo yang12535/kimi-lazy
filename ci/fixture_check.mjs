@@ -128,6 +128,18 @@ try {
   }
   if (!repeat?.done || repeat.results.some(r=>!r.pass)) throw new Error('persisted-position fixture rerun failed: '+JSON.stringify(repeat));
   report.repeatTotal=repeat.results.length;
+  // The shipped 0.42.0 client leaves HistoryWindow.enabled false by default.
+  await send('Runtime.evaluate', {expression: 'window.fixtureTestsDone=false;window.fixtureTestResults=[];'}, sessionId);
+  await send('Page.navigate', {url: `http://127.0.0.1:${PORT}/fixture.html?hw=off`}, sessionId);
+  let hwOff;
+  for (let i=0; i<150; i++) {
+    await sleep(100);
+    const {result}=await send('Runtime.evaluate',{expression:'({done:window.fixtureTestsDone===true,hw:location.search.includes("hw=off"),results:window.fixtureTestResults||[]})',returnByValue:true},sessionId);
+    hwOff=result.value;
+    if(hwOff?.done && hwOff?.hw)break;
+  }
+  if(!hwOff?.done || !hwOff?.hw || hwOff.results.some(r=>!r.pass)) throw new Error('HistoryWindow disabled fixture failed: '+JSON.stringify(hwOff));
+  report.hwDisabledTotal=hwOff.results.length;
   // CLI 0.42.0+ 的 HistoryWindow 结构：上游自行开窗，适配只做折叠体回收。
   await send('Runtime.evaluate', {expression: 'window.fixtureTestsDone=false;window.fixtureTestResults=[];'}, sessionId);
   await send('Page.navigate', {url: `http://127.0.0.1:${PORT}/fixture.html?hw=1`}, sessionId);

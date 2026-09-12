@@ -5,7 +5,7 @@
   // Known frontend builds: Kimi Web bundles shipped with kimi-code CLI 0.33.0–0.42.0.
   const BUILDS = new Set(['/assets/index-HU0LCM-X.js', '/assets/index-Bxn5yOTB.js', '/assets/index-CgXirkUy.js', '/assets/index-ClWTW3HX.js', '/assets/index-CvgiEu-R.js', '/assets/index-B-HzRssS.js', '/assets/index-yKYHPeXU.js', '/assets/index-BdL5hCoZ.js', '/assets/index-D-7nOosq.js', '/assets/index-HRJ6xRtC.js', '/assets/index-CiHMlsuo.js', '/assets/index--0t1wzw_.js', '/assets/index-BkUUBejk.js']);
   const { WindowPolicy } = window.KimiLazyPolicy;
-  const names = new Set(['ChatPane', 'ActivityRun', 'TurnFold', 'ThinkingBlock']);
+  const names = new Set(['ChatPane', 'HistoryWindow', 'ActivityRun', 'TurnFold', 'ThinkingBlock']);
   let config = { enabled: true, keep: 20, blocks: 20, idleMinutes: 10, auto: true };
   let failed = '', serial = 0, route = location.pathname, fullHistory = false;
   let frame = 0, maintenance = 0, loadingTimer = 0, lastPaging = 0;
@@ -30,7 +30,7 @@
   const has = (v, name) => cls(v).includes(name);
   const fragment = v => typeof v?.type === 'symbol' && v.type.description === 'v-fgt';
   const children = v => Array.isArray(v?.children) ? v.children : [];
-  const liveVNode = v => !!(v?.props?.streaming || v?.props?.live || v?.props?.tool?.status === 'running' ||
+  const liveVNode = v => !!(v?.props?.streaming || v?.props?.live || v?.props?.streamingTailIndex != null || v?.props?.tool?.status === 'running' ||
     v?.props?.items?.some?.(i => i?.tool?.status === 'running') || children(v).some(liveVNode));
   const liveKeys = list => new Set(list.flatMap((v, i) => liveVNode(v) ? [String(v.key ?? i)] : []));
   const copy = (v, changes = {}) => ({ ...v, ...changes, patchFlag: 0, dynamicChildren: null });
@@ -110,15 +110,27 @@
       return fragment(v) ? copy(v, { children: [wrapper] }) : wrapper;
     });
   }
-  function hasComponent(v, name) {
-    if (!v || typeof v !== 'object') return false;
+  function findComponent(v, name) {
+    if (!v || typeof v !== 'object') return null;
     const t = v.type;
-    if (t && typeof t === 'object' && (t.__name === name || t.name === name)) return true;
-    return children(v).some(c => hasComponent(c, name));
+    if (t && typeof t === 'object' && (t.__name === name || t.name === name)) return v;
+    for (const child of children(v)) { const found = findComponent(child, name); if (found) return found; }
+    return null;
   }
-  // Per-turn block windowing for the ChatPane path (≤0.41.x). On 0.42.0+ upstream
-  // windows turns and per-message blocks natively (HistoryWindow), so there is
-  // nothing left to window here — only fold-body recycling still applies.
+  function chatOwner(instance) {
+    for (let p = instance; p; p = p.parent) if (p.type?.__name === 'ChatPane') return p;
+    return null;
+  }
+  function protectedTurns(props) {
+    const ids = new Set();
+    if (props.turnActive && props.turns.length) ids.add(String(props.turns.at(-1).id));
+    for (const turn of props.turns) {
+      if (turn.tools?.some(t => t.status === 'running') || turn.blocks?.some(b => b.tool?.status === 'running')) ids.add(String(turn.id));
+    }
+    return ids;
+  }
+  // ≤0.41.x renders message blocks directly in ChatPane. The 0.42.0 path
+  // handles each disabled HistoryWindow at its own scoped-slot render boundary.
   function processTurn(state, v, id) {
     return mapTree(v, n => {
       if (!has(n, 'a-msg')) return n;
@@ -135,21 +147,18 @@
     }
     const props = state.instance.props;
     state.used = new Set();
+    state.foldSeen = false; state.foldAsleep = false;
     if (state.name === 'ChatPane') {
       if (props.inspector || !Array.isArray(props.turns)) return vnode;
-      const protectedIds = new Set();
-      if (props.turnActive && props.turns.length) protectedIds.add(props.turns.at(-1).id);
-      for (const turn of props.turns) {
-        if (turn.tools?.some(t => t.status === 'running') || turn.blocks?.some(b => b.tool?.status === 'running')) protectedIds.add(turn.id);
-      }
+      const protectedIds = protectedTurns(props);
       vnode = mapTree(vnode, chat => {
         if (!has(chat, 'chat')) return chat;
+        const history = findComponent(chat, 'HistoryWindow');
+        if (history) return chat;
         const list = children(chat).find(n => fragment(n) && children(n).length === props.turns.length &&
           children(n).every((v, i) => v.key === props.turns[i].id));
         if (!list) {
-          // 0.42.0+ renders turns inside HistoryWindow, which virtualizes both the
-          // turn list and each message's blocks natively; leave that tree alone.
-          if (props.turns.length && !hasComponent(chat, 'HistoryWindow')) throw new Error('消息列表结构与适配版本不同');
+          if (props.turns.length) throw new Error('消息列表结构与适配版本不同');
           return chat;
         }
         const mapped = renderList(state, 'turns', children(list), config.keep, {
@@ -159,6 +168,18 @@
         return copy(chat, { props: { ...chat.props, 'data-kl-owner': state.id },
           children: children(chat).map(c => c === list ? copy(c, { children: mapped }) : c) });
       });
+    } else if (state.name === 'HistoryWindow') {
+      const owner = chatOwner(state.instance);
+      if (!owner || owner.props.inspector || props.enabled) { state.groups.clear(); return vnode; }
+      if (!Array.isArray(props.items) || typeof props.itemKey !== 'function' || !fragment(vnode)) throw new Error('历史窗口结构与适配版本不同');
+      const list = children(vnode);
+      if (list.length !== props.items.length || !list.every((v, i) => v.key === props.itemKey(props.items[i], i))) throw new Error('历史窗口条目与适配版本不同');
+      const turns = props.items === owner.props.turns;
+      const mapped = renderList(state, turns ? 'turns' : 'items', list, turns ? config.keep : config.blocks, {
+        turns, protectedIds: turns ? protectedTurns(owner.props) : liveKeys(list),
+        signatures: turns ? props.items.map(fingerprint) : undefined
+      });
+      vnode = copy(vnode, { children: mapped });
     } else {
       const bodyClass = { ActivityRun: 'ar-body', TurnFold: 'tf-body', ThinkingBlock: 'think-body' }[state.name];
       vnode = mapTree(vnode, body => {
@@ -179,13 +200,17 @@
   }
   function wrap(instance, original) {
     if (originals.has(original)) return original;
-    const state = { id: ++serial, instance, name: instance.type.__name, path: location.pathname, groups: new Map(), used: new Set(), foldSeen: false, foldAsleep: false };
+    const state = { id: ++serial, instance, name: instance.type.__name, path: location.pathname, groups: new Map(), used: new Set(), mode: 'adapter', foldSeen: false, foldAsleep: false };
     states.set(instance.uid, state);
     const wrapped = function (...args) {
       const result = original.apply(this, args);
+      if (state.name === 'ChatPane') {
+        const history = findComponent(result, 'HistoryWindow');
+        state.mode = history && (history.props?.enabled === true || history.props?.enabled === '') ? 'native' : 'adapter';
+      }
       // The previous tree may contain placeholders. Vue's compiler-generated block
       // fast path assumes its original topology, so a full diff is required here.
-      if (!config.enabled || failed) return deopt(result);
+      if (!config.enabled || failed) { state.groups.clear(); state.foldSeen = false; state.foldAsleep = false; return deopt(result); }
       try { return adapt(state, result); }
       catch (error) { fail(error); return deopt(result); }
     };
@@ -194,6 +219,7 @@
   }
   function hook(instance) {
     if (!instance || !names.has(instance.type?.__name) || !supported()) return;
+    if (instance.type.__name === 'HistoryWindow' && (!chatOwner(instance) || chatOwner(instance).props.inspector)) return;
     if (patchedInstances.has(instance)) return;
     const descriptor = Object.getOwnPropertyDescriptor(instance, 'render');
     if (descriptor && !descriptor.configurable) return;
@@ -296,7 +322,7 @@
         if (sweep) {
           g.policy.expire(now, idleMs(), protectedIds);
           g.policy.ids.forEach((id, index) => {
-            const keep = state.name === 'ChatPane' && g === state.groups.get('turns') ? config.keep : config.blocks;
+            const keep = g === state.groups.get('turns') ? config.keep : config.blocks;
             if (g.policy.records.get(id).mounted && !g.policy.wanted(id, index, keep, now, idleMs(), protectedIds)) dirty = true;
           });
         }
@@ -319,27 +345,22 @@
     state.instance.emit('loadOlderMessages');
   }
   function status() {
-    const main = mainState(), g = main?.groups.get('turns');
+    const main = mainState();
+    const owned = [...states.values()].filter(s => !s.instance.isUnmounted && s.path === location.pathname && chatOwner(s.instance) === main?.instance);
+    const g = main?.groups.get('turns') || owned.find(s => s.groups.has('turns'))?.groups.get('turns');
     let mounted = 0, asleep = 0, unit = 'turns';
-    if (g && g.policy.records.size) {
+    if (config.enabled && !failed && g) {
       for (const r of g.policy.records.values()) r.mounted ? mounted++ : asleep++;
-    } else {
-      // 0.42.0+ windows turns, message blocks and tool items upstream; what the
-      // adapter still manages there is fold-body recycling, so count those bodies.
-      unit = 'blocks';
-      for (const state of states.values()) {
-        if (state.instance.isUnmounted) continue;
-        if (state.foldSeen) { state.foldAsleep ? asleep++ : mounted++; continue; }
-        for (const [domain, group_] of state.groups) {
-          if (domain !== 'items' && !domain.startsWith('turn:')) continue;
-          for (const r of group_.policy.records.values()) r.mounted ? mounted++ : asleep++;
-        }
+    } else if (main?.mode === 'native') {
+      unit = 'folds';
+      if (config.enabled && !failed) for (const state of owned) {
+        if (state.foldSeen) state.foldAsleep ? asleep++ : mounted++;
       }
     }
     window.dispatchEvent(new CustomEvent('kimi-lazy-status', { detail: JSON.stringify({
       supported: supported(), attached: !!main, enabled: config.enabled, error: failed,
-      mounted, asleep, unit, fullHistory, hasMore: !!main?.instance.props.hasMoreMessages,
-      config, version: '0.1.3'
+      mounted, asleep, unit, mode: main?.mode || 'waiting', fullHistory, hasMore: !!main?.instance.props.hasMoreMessages,
+      config, version: '0.1.4'
     }) }));
   }
   function configure(next) {

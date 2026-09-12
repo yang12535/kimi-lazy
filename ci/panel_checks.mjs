@@ -46,5 +46,19 @@ export async function panelChecks(send, sessionId, kind) {
   check('clamping respects resolved safe-area padding on all sides', safe.first.left >= 22 && safe.first.top >= 30 && safe.last.right <= 296 && safe.last.bottom <= 612, safe);
   const saved = await evaluate(kind === 'extension' ? 'window.extensionStorage' : `JSON.parse(localStorage.getItem('kimi-lazy.userscript.pos.v1'))`);
   check('finite position persisted', kind === 'extension' ? Number.isFinite(saved['kimiLazyPanelPos:' + new URL(await evaluate('location.href')).origin]?.fx) : Number.isFinite(saved?.fx), saved);
+  const modes = await evaluate(`(() => {
+    const root=panelTest.host.shadowRoot;
+    const emit=s=>window.dispatchEvent(new CustomEvent('kimi-lazy-status',{detail:JSON.stringify({attached:true,enabled:true,mounted:0,asleep:151,hasMore:true,...s})}));
+    emit({mode:'adapter',unit:'turns'});
+    const adapter=!root.getElementById('tuning').hidden && !root.getElementById('keep').disabled && root.getElementById('status').textContent.includes('条消息');
+    emit({mode:'native',unit:'folds'});
+    const native=root.getElementById('tuning').hidden && root.getElementById('keep').disabled && root.getElementById('status').textContent.includes('151 个折叠区');
+    emit({mode:'native',unit:'folds',enabled:false});
+    const disabled=root.getElementById('tuning').hidden;
+    emit({mode:'adapter',unit:'turns',asleep:0});
+    const empty=!root.getElementById('tuning').hidden && !root.getElementById('keep').disabled;
+    return {adapter,native,disabled,empty};
+  })()`);
+  check('actual window mode controls labels and tuning, including disabled and empty chats', Object.values(modes).every(Boolean), modes);
   return checks;
 }

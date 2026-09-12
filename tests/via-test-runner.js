@@ -4,7 +4,7 @@ window.addEventListener('DOMContentLoaded',()=>setTimeout(async()=>{
  const report=()=>fetch('/results',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(result)});
  await report();
  try {
-  const hw=new URLSearchParams(location.search).has('hw');
+  const hw=new URLSearchParams(location.search).get('hw')==='1';
   await (hw?runHwFixtureTests():runFixtureTests({allowLate:true}));
   result.results=window.fixtureTestResults;
  } catch(e) { result.error=String(e); result.results=window.fixtureTestResults; }
