@@ -59,6 +59,8 @@ Via 的 `document-start` 实际执行时机可能变化。实测有一轮先全�
 
 ## 验证
 
+本次 0.1.4 执行了下述自动化检查；Via / Tampermonkey 安装及真实会话数值是历史测试记录，本次没有重跑设备安装。
+
 - 9 项 Node 测试：窗口租约、可见保护、消息变化、会话清理、非目标页面和子框架退出等。
 - 浏览器功能检查：20 项旧结构合成会话 + 20 项 HistoryWindow 默认关闭模式 + 10 项原生开窗模式 + 两种面板检查；覆盖数量设置、自动恢复、闲置时间、流式更新、补齐历史、停用还原、统计清理和拖动布局。
 - Via 原生脚本安装与运行通过；真实会话显示 **20 条已渲染、39 条休眠**，开关还原正常。
@@ -95,7 +97,7 @@ python3 scripts/verify_crx.py dist/kimi-lazy-0.1.4.crx
 `.github/workflows/watch-upstream.yml` 每 6 小时轮询 npm 上的 kimi-code 新版本（也可 Actions 页手动触发）：
 
 1. `ci/check_upstream.py` 从新版本的 npm tarball 解出前端构建 hash（`.github/upstream-state.json` 记录已查版本，不重复下载）；
-2. 新构建先过 `ci/contract.json` 的 19 项契约标识核对；
+2. 新构建先过 `ci/contract.json` 的基础标识核对；使用 HistoryWindow 的构建还必须通过组件、属性、启用分支及关闭时带 key 的插槽 Fragment 结构检查；
 3. 通过 → `ci/add_build.py` 加白名单 + 重建 + 回归测试 → 无头 Chrome 夹具（CDP，含 HistoryWindow 模式）→ **自动开 PR**（人工合并）；
 4. 契约破坏 → **自动开 issue** 附缺失标识，不机械放行。
 

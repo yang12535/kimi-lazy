@@ -5,7 +5,7 @@
 - 回归复现：0.1.3 在 `HistoryWindow.enabled=false` 的合成会话中挂载 800 个重内容组件且未回收；0.1.4 首次仅挂载 200 个，对应 20 条消息及每条 20 个内容块。
 - Chrome：20 项旧结构 + 20 项 HistoryWindow 默认关闭模式 + 10 项原生开窗模式 + 18 项面板检查通过；另重复运行 20 项旧结构验证已保存位置。HistoryWindow 夹具使用 Vue 编译器产生作用域插槽和 Fragment 优化标志，覆盖 `items/itemKey/enabled` 契约。
 - 额外隔离验证：使用本机 0.42.0 已发布资源 `/assets/index-HU0LCM-X.js` 中的实际 HistoryWindow 和 Vue 运行时，取消应用根组件的挂载，接入纯合成会话。默认关闭模式的 20 项检查通过，首次挂载 200 个组件；没有读取或发送真实会话。源资源 SHA-256：`5f0cabff5aab0780958bd450759e23f9af2f2e16da014a339253d6963342e2ff`。这项是本次发布的额外验证，CI 运行可重复的合成夹具。
-- Node 9 项、Python 10 项、三个分发 JavaScript 语法检查通过；Python 覆盖签名、篡改拒绝、白名单一致性和上游监视工作流。
+- Node 9 项、Python 17 项、三个分发 JavaScript 语法检查通过；Python 覆盖签名、篡改拒绝、白名单一致性和上游监视工作流。
 - 正式 CRX3 签名验证通过，版本 0.1.4，扩展 ID 仍为 `ekkjemngmajheklnojkkpjnegffnogkn`。
 - 本次没有重新执行 Via / Tampermonkey 安装，也没有测量真实会话帧率或总堆内存。以下记录属于历史验证，不代表 0.1.4 的设备实测。
 

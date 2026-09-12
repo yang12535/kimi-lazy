@@ -81,7 +81,43 @@ def contract_check(text):
     if not re.search(r'["\']3\.5\.\d+["\']', text) and not re.search(r'version[=:]\s*["\']3\.5\.', text):
         hard.append('vue:' + CONTRACT['vue'])
     soft = [it for it in ids['classes'] + ids['props'] if it not in text]
+    hard.extend(history_window_contract(text))
     return hard, soft
+
+
+def history_window_contract(text):
+    """Conservative static gate for 0.42-style bundles; legacy builds stay valid.
+
+    These are hard requirements, never part of the two-marker soft allowance.
+    A different compiler topology requires manual inspection before allowlisting.
+    Runtime guards remain necessary: marker checks cannot prove full semantics.
+    """
+    contract = CONTRACT['historyWindow']
+    if not any(marker in text for marker in contract['triggers']):
+        return []
+    name = contract['component']
+    start = re.search(r'\b(?:__name|name)\s*:\s*["\']' + re.escape(name) + r'["\']', text)
+    if not start:
+        return [name + ':component']
+    # Keep unrelated components' props/render code from satisfying this gate.
+    body = re.split(r'\b__name\s*:', text[start.end():], maxsplit=1)[0]
+    props = re.match(r'\s*,\s*props\s*:\s*\{(.*?)\}\s*,\s*setup\s*[(:]', body, re.S)
+    missing = [name + ':' + prop for prop in contract['props']
+               if not props or not re.search(r'\b' + re.escape(prop) + r'\s*:', props[1])]
+    if not re.search(r'\.enabled\s*\?', body):
+        missing.append(name + ':enabled-branch')
+    fragments = re.findall(r'([$\w]+)\s*=\s*Symbol\.for\(["\']v-fgt["\']\)', text)
+    ident = r'[$\w]+'
+    # Disabled render: (openBlock(true), createBlock(Fragment, {key:0},
+    # renderList(props.items, ...renderSlot(...,{key:props.itemKey(...)})),128)).
+    shape = any(re.search(
+        r':\s*\(\s*' + ident + r'\(\s*(?:!\s*0|true)\s*\)\s*,\s*' + ident +
+        r'\(\s*' + re.escape(fragment) + r'\s*,\s*\{\s*key\s*:\s*0\s*\}\s*,\s*' +
+        ident + r'\(\s*' + ident + r'\.items\s*,', body) for fragment in fragments)
+    keyed_slot = re.search(r'\.\$slots\s*,\s*["\']default["\']\s*,\s*\{\s*key\s*:\s*' + ident + r'\.itemKey\(', body)
+    if not shape or not keyed_slot:
+        missing.append(name + ':' + contract['disabledRender'])
+    return missing
 
 
 def main():

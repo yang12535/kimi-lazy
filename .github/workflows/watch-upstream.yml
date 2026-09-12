@@ -66,7 +66,7 @@ jobs:
               f.write('## 自动适配（watch-upstream）\n\n契约核对通过并加入白名单：\n\n')
               for x in items:
                   f.write(f"- `{x['asset']}` ← CLI {', '.join(x['versions'])}\n")
-              f.write('\n验证：契约 19 项标识 · node 回归 · 无头 Chrome 夹具全量（本 workflow 内执行）。\n')
+              f.write('\n验证：基础契约及适用的 HistoryWindow 硬检查 · node 回归 · 无头 Chrome 夹具全量（本 workflow 内执行）。\n')
               fail = json.loads(os.environ.get('NEW_FAIL') or '[]')
               if fail:
                   f.write('\n⚠️ 同批发现契约破坏的构建（未放行，另见 issue）：\n\n')

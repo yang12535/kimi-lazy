@@ -151,7 +151,7 @@
       $('cancel').hidden = !s.fullHistory;
       $('all').disabled = !!s.fullHistory || !s.hasMore || !s.enabled || !s.attached || !!s.error;
       $('all').textContent = s.hasMore ? '加载全部历史' : '历史已全部读取';
-      const native = s.mode === 'native' && !!s.attached;
+      const native = s.mode === 'native' && !!s.attached && !s.error;
       $('tuning').hidden = native;
       $('enabled-label').textContent = native ? '回收折叠内容' : '启用按需渲染';
       $('recent').textContent = native ? '回到最新' : '回到最新并回收';

@@ -5,5 +5,11 @@
     "components": ["ChatPane", "ActivityRun", "TurnFold", "ThinkingBlock"],
     "classes": ["chat-scroll", "a-msg", "ar-body", "tf-body", "think-body", "v-fgt"],
     "props": ["hasMoreMessages", "loadingMore", "loadingMoreError", "sessionLoading", "loadOlderMessages", "turnActive", "inspector"]
+  },
+  "historyWindow": {
+    "component": "HistoryWindow",
+    "triggers": ["HistoryWindow", "windowHistory", "renderAllHistory"],
+    "props": ["items", "itemKey", "enabled"],
+    "disabledRender": "keyed-slot-fragment"
   }
 }
