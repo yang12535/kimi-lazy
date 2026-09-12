@@ -57,7 +57,9 @@ export async function panelChecks(send, sessionId, kind) {
     const disabled=root.getElementById('tuning').hidden;
     emit({mode:'adapter',unit:'turns',asleep:0});
     const empty=!root.getElementById('tuning').hidden && !root.getElementById('keep').disabled;
-    return {adapter,native,disabled,empty};
+    emit({mode:'native',unit:'folds',error:'fixture incompatibility'});
+    const failed=root.getElementById('native-hint').hidden && root.getElementById('status').textContent.includes('已恢复原生界面') && root.getElementById('all').disabled;
+    return {adapter,native,disabled,empty,failed};
   })()`);
   check('actual window mode controls labels and tuning, including disabled and empty chats', Object.values(modes).every(Boolean), modes);
   return checks;
