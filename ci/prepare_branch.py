@@ -7,7 +7,7 @@ import subprocess
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-GENERATED = ['.github/upstream-state.json', 'src/core/main.js', 'src/extension/panel.js',
+GENERATED = ['.github/upstream-state.json', 'src/core/main.js',
              'src/userscript/bootstrap.js', 'src/userscript/panel.js']
 
 

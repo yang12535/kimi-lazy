@@ -4,7 +4,7 @@ from pathlib import Path
 import unittest
 
 ROOT = Path(__file__).resolve().parent.parent
-TARGETS = ['src/core/main.js', 'src/extension/panel.js',
+TARGETS = ['src/core/main.js',
            'src/userscript/bootstrap.js', 'src/userscript/panel.js']
 
 

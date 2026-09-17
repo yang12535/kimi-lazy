@@ -23,7 +23,7 @@ REGISTRY = os.environ.get('NPM_REGISTRY', 'https://registry.npmjs.org').rstrip('
 ASSET_RE = re.compile(r'/assets/index-[\w-]+\.js')
 STATE_PATH = ROOT / '.github' / 'upstream-state.json'
 CONTRACT = json.loads((ROOT / 'ci' / 'contract.json').read_text())
-TARGETS = ['src/core/main.js', 'src/extension/panel.js', 'src/userscript/bootstrap.js', 'src/userscript/panel.js']
+TARGETS = ['src/core/main.js', 'src/userscript/bootstrap.js', 'src/userscript/panel.js']
 LIST_RE = re.compile(r'BUILDS\s*=\s*new\s+Set\s*\(\s*\[([^\]]*)\]')
 COMMENT_RE = re.compile(r'(// Known frontend builds: Kimi Web bundles shipped with kimi-code CLI )[^\n]*(\.)')
 

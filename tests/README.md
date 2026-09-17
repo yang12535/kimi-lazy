@@ -8,8 +8,6 @@ node --test tests/*.test.cjs
 python3 -m unittest discover -s tests -p 'test_*.py' -v
 ```
 
-CRX 签名和篡改拒绝测试需要先通过 `--key` 构建 CRX；无 CRX 时这两项明确跳过。CI 使用临时 RSA 私钥，由 Chrome 打包后运行全部检查；发行版必须重复使用维护者保管的正式密钥。
-
 ## 浏览器功能验证
 
 ```bash
@@ -32,4 +30,4 @@ python3 tests/serve.py
 CHROME_BIN=/usr/bin/google-chrome node ci/fixture_check.mjs . /tmp/kimi-lazy-fixture-out
 ```
 
-运行器等待明确的完成信号，执行 20 项主夹具、同网站保留位置后的第二轮夹具、20 项 HistoryWindow 默认关闭模式、10 项原生开窗模式，以及用户脚本 / 扩展各 9 项面板检查（窄屏中点与边缘、旋转比例、缩小后恢复、键盘点击、安全区和存储）。扩展面板在真实 Chrome 中运行，存储 API 使用夹具模拟；安全区用解析后的 CSS 内边距模拟，不代表新增手机实测。常规 PR CI 和 watch-upstream 都执行此检查。
+运行器等待明确的完成信号，执行 20 项主夹具、同网站保留位置后的第二轮夹具、20 项 HistoryWindow 默认关闭模式、10 项原生开窗模式，以及 9 项用户脚本面板检查（窄屏中点与边缘、旋转比例、缩小后恢复、键盘点击、安全区和存储）。存储 API 使用夹具模拟；安全区用解析后的 CSS 内边距模拟，不代表新增手机实测。常规 PR CI 和 watch-upstream 都执行此检查。
