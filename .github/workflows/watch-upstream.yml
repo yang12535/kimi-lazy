@@ -1,6 +1,6 @@
 name: watch-upstream
 # 轮询 npm 上的 kimi-code 新版本：新前端构建 → 契约核对 → 夹具验证 → 自动开 PR。
-# 契约破坏的构建不机械放行，开 issue 附缺失标识。签名打包/发版本不在此流程内（见 README）。
+# 契约破坏的构建不机械放行，开 issue 附缺失标识。发版不在此流程内（见 README）。
 on:
   schedule:
     - cron: '23 */6 * * *'   # 每 6 小时；GitHub 调度有抖动，属正常
@@ -72,7 +72,7 @@ jobs:
                   f.write('\n⚠️ 同批发现契约破坏的构建（未放行，另见 issue）：\n\n')
                   for x in fail:
                       f.write(f"- `{x['asset']}` 缺 {', '.join(x['missing'])}\n")
-              f.write('\n合并后如需发版，流程见 README「构建」节（签名私钥不在 CI）。\n')
+              f.write('\n合并后发版：`python3 scripts/build.py`，用 `dist/` 产物创建 Release（流程见 README「构建」节）。\n')
           with open('/tmp/pr-commits.txt', 'w') as f:
               for x in items:
                   f.write(f"- {x['asset']} ← CLI {', '.join(x['versions'])}\n")
@@ -82,7 +82,7 @@ jobs:
           branch="bot/frontend-${first}"
           # The recovered branch was built and tested by the preceding steps.
           test "$(git branch --show-current)" = "$branch"
-          git add .github/upstream-state.json src/core/main.js src/extension/panel.js src/userscript/bootstrap.js src/userscript/panel.js
+          git add .github/upstream-state.json src/core/main.js src/userscript/bootstrap.js src/userscript/panel.js
           if ! git diff --cached --quiet; then
             git commit -qm "适配上游新前端构建（watch-upstream 自动）" -qm "$(cat /tmp/pr-commits.txt)"
           fi

@@ -152,15 +152,6 @@ try {
   }
   if (!hwRun?.done || !hwRun?.hw || hwRun.results.some(r=>!r.pass) || !String(hwRun.results[0]?.name||'').startsWith('HW:')) throw new Error('HistoryWindow-mode fixture failed: '+JSON.stringify(hwRun));
   report.hwTotal=hwRun.results.length;
-  await send('Page.navigate', {url: `http://127.0.0.1:${PORT}/extension-fixture.html`}, sessionId);
-  for(let i=0; i<50; i++) {
-    await sleep(100);
-    const {result}=await send('Runtime.evaluate',{expression: "document.title==='Extension panel fixture' && !!document.getElementById('kimi-lazy-panel')", returnByValue:true},sessionId);
-    if(result.value)break;
-  }
-  const {result:initial}=await send('Runtime.evaluate',{expression:"document.getElementById('kimi-lazy-panel').style.left",returnByValue:true},sessionId);
-  if(initial.value) throw new Error('extension restored a position belonging to another origin');
-  report.panelChecks.push(...await panelChecks(send, sessionId, 'extension'));
 } catch(e) { report.failed.push(e.message); }
 writeFileSync(path.join(outDir, 'cdp-report.json'), JSON.stringify(report, null, 2) + '\n');
 console.log(JSON.stringify(report));

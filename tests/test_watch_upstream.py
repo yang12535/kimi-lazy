@@ -11,7 +11,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parent.parent
-GENERATED = ['.github/upstream-state.json', 'src/core/main.js', 'src/extension/panel.js',
+GENERATED = ['.github/upstream-state.json', 'src/core/main.js',
              'src/userscript/bootstrap.js', 'src/userscript/panel.js']
 A = '/assets/index-A.js'
 B = '/assets/index-B.js'

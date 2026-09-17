@@ -1,4 +1,4 @@
-/** Real-browser regressions shared by the userscript and extension panels. */
+/** Real-browser regressions for the userscript panel. */
 export async function panelChecks(send, sessionId, kind) {
   const checks = [];
   const evaluate = async expression => {

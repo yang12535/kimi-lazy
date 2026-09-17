@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""CI 版机械适配：把新构建 hash 追加进 4 处 BUILDS 白名单，重建产物，跑回归。
+"""CI 版机械适配：把新构建 hash 追加进 3 处 BUILDS 白名单，重建产物，跑回归。
 
 用法：add_build.py /assets/index-A.js [/assets/index-B.js ...]
 退出码：0 全部完成且测试通过；1 失败。
@@ -13,7 +13,7 @@ from check_upstream import refresh_comment
 
 ROOT = Path(__file__).resolve().parent.parent
 ASSET_RE = re.compile(r'^/assets/index-[\w-]+\.js$')
-TARGETS = ['src/core/main.js', 'src/extension/panel.js', 'src/userscript/bootstrap.js', 'src/userscript/panel.js']
+TARGETS = ['src/core/main.js', 'src/userscript/bootstrap.js', 'src/userscript/panel.js']
 SET_RE = re.compile(r'(BUILDS\s*=\s*new\s+Set\s*\(\s*\[)')
 
 
