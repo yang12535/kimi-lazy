@@ -44,8 +44,8 @@ export async function panelChecks(send, sessionId, kind) {
   // Model resolved CSS env() insets; actual notched-device rendering remains device-specific.
   const safe = await evaluate(`(() => { const probe=panelTest.host.shadowRoot.querySelector('div[style]'); probe.style.padding='30px 24px 28px 22px'; panelTest.drag(-999,-999); const first=panelTest.rect(); panelTest.drag(999,999); const last=panelTest.rect(); return {first,last}; })()`);
   check('clamping respects resolved safe-area padding on all sides', safe.first.left >= 22 && safe.first.top >= 30 && safe.last.right <= 296 && safe.last.bottom <= 612, safe);
-  const saved = await evaluate(kind === 'extension' ? 'window.extensionStorage' : `JSON.parse(localStorage.getItem('kimi-lazy.userscript.pos.v1'))`);
-  check('finite position persisted', kind === 'extension' ? Number.isFinite(saved['kimiLazyPanelPos:' + new URL(await evaluate('location.href')).origin]?.fx) : Number.isFinite(saved?.fx), saved);
+  const saved = await evaluate(`JSON.parse(localStorage.getItem('kimi-lazy.userscript.pos.v1'))`);
+  check('finite position persisted', Number.isFinite(saved?.fx), saved);
   const modes = await evaluate(`(() => {
     const root=panelTest.host.shadowRoot;
     const emit=s=>window.dispatchEvent(new CustomEvent('kimi-lazy-status',{detail:JSON.stringify({attached:true,enabled:true,mounted:0,asleep:151,hasMore:true,...s})}));
