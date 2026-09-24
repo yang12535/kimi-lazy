@@ -1,6 +1,6 @@
 {
   "name": "kimi-lazy",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "repository": "yang12535/kimi-lazy",
-  "supportedFrontend": "kimi-code CLI 0.33.0-2.0.2（17 个前端构建）"
+  "supportedFrontend": "kimi-code CLI 0.33.0-2.1.0（18 个前端构建）"
 }

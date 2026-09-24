@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.7 — 2026-09-24
+
+- 适配：加入 kimi-code CLI 2.1.0 前端 `/assets/index-CiJ6FDOC.js`；白名单覆盖 0.33.0–2.1.0 的 18 个构建。本轮契约核对（含 HistoryWindow 硬检查）、node/python 回归、无头 Chrome 夹具与真实 dist-web 端到端激活（含未知构建负向对照）在 PR 分支独立复现通过（见 PR #18 复核记录）。
+
 ## 0.1.6 — 2026-09-20
 
 - 适配：加入 kimi-code CLI 2.0.2 前端 `/assets/index-DkwBvjsJ.js`；白名单覆盖 0.33.0–2.0.2 的 17 个构建。本轮契约核对（含 HistoryWindow 硬检查）、node/python 回归与无头 Chrome 夹具在 PR 分支独立复现通过（见 PR #17 复核记录）。
